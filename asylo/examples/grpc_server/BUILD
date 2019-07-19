@@ -116,7 +116,9 @@ enclave_loader(
     loader_args = ["--enclave_path='{enclave}'"],
     deps = [
         ":grpc_server_config_cc_proto",
+        "//asylo:enclave_cc_proto",
         "//asylo:enclave_client",
+	"//asylo/platform/arch:fork_cc_proto",
         "//asylo/util:logging",
         "@com_github_gflags_gflags//:gflags_nothreads",
     ],
