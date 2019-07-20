@@ -615,3 +615,9 @@ exercises below:
     using `EnterAndRun` and print them out.
 *   **Write a gRPC client in another enclave:** Write a gRPC client that makes
     RPCs to the translation server. Run this client inside another enclave.
+
+## seehwan
+* usage: 
+
+bazel run --config=sgx //asylo/examples/grpc_server --incompatible_depset_is_not_iterable=false
+
