@@ -21,6 +21,60 @@
 #include "gflags/gflags.h"
 #include "asylo/util/logging.h"
 #include "asylo/platform/arch/fork.pb.h"
+#include "asylo/platform/common/memory.h"
+
+namespace asylo {
+// A helper class that frees the whole snapshot memory.
+class SnapshotDeleter {
+ public:
+  // A helper class to free the memory of a snapshot entry.
+  class SnapshotEntryDeleter {
+   public:
+    SnapshotEntryDeleter()
+        : ciphertext_deleter_(nullptr), nonce_deleter_(nullptr) {}
+    
+    void Reset(const SnapshotLayoutEntry &entry) {
+      ciphertext_deleter_.reset(
+          reinterpret_cast<void *>(entry.ciphertext_base()));
+      nonce_deleter_.reset(reinterpret_cast<void *>(entry.nonce_base()));
+    }
+  
+   private:
+    MallocUniquePtr<void> ciphertext_deleter_;
+    MallocUniquePtr<void> nonce_deleter_;
+  };
+  
+  void Reset(const SnapshotLayout &snapshot_layout) {
+    data_deleter_.resize(snapshot_layout.data_size());
+    bss_deleter_.resize(snapshot_layout.bss_size());
+    heap_deleter_.resize(snapshot_layout.heap_size());
+    thread_deleter_.resize(snapshot_layout.thread_size());
+    stack_deleter_.resize(snapshot_layout.stack_size());
+    for (int i = 0; i < snapshot_layout.data_size(); ++i) {
+      data_deleter_[i].Reset(snapshot_layout.data(i));
+    }
+    for (int i = 0; i < snapshot_layout.bss_size(); ++i) {
+      bss_deleter_[i].Reset(snapshot_layout.bss(i));
+    }
+    for (int i = 0; i < snapshot_layout.heap_size(); ++i) {
+      heap_deleter_[i].Reset(snapshot_layout.heap(i));
+    }
+    for (int i = 0; i < snapshot_layout.thread_size(); ++i) {
+      thread_deleter_[i].Reset(snapshot_layout.thread(i));
+    }
+    for (int i = 0; i < snapshot_layout.stack_size(); ++i) {
+      stack_deleter_[i].Reset(snapshot_layout.stack(i));
+    }
+  } 
+    
+ private:
+  std::vector<SnapshotEntryDeleter> data_deleter_;
+  std::vector<SnapshotEntryDeleter> bss_deleter_;
+  std::vector<SnapshotEntryDeleter> heap_deleter_;
+  std::vector<SnapshotEntryDeleter> thread_deleter_;
+  std::vector<SnapshotEntryDeleter> stack_deleter_;
+};  
+}
 
 DEFINE_string(enclave_path, "", "Path to enclave to load");
 
@@ -36,6 +90,7 @@ DEFINE_int32(port, 0, "Port that the server listens to");
 
 constexpr char kServerAddress[] = "[::1]";
 asylo::SnapshotLayout snapshot_layout_;
+asylo::SnapshotDeleter snapshot_deleter_;
 
 int main(int argc, char *argv[]) {
   // Parse command-line arguments.
@@ -77,14 +132,38 @@ int main(int argc, char *argv[]) {
   status = client->EnterAndRun(input, nullptr);
   LOG_IF(QFATAL, !status.ok())
       << "Running " << FLAGS_enclave_path << " failed: " << status;
+
+  snapshot_deleter_.Reset(snapshot_layout_);
+  // Snapshot the enclave.
   status = client->EnterAndTakeSnapshot(&snapshot_layout_);
-  LOG_IF(QFATAL, status.ok())
-      << "Snapshot " << FLAGS_enclave_path << " : " << snapshot_layout_.stack_size() ;
+  LOG_IF(INFO, status.ok())
+      << "Snapshot " << FLAGS_enclave_path << " : " << snapshot_layout_.data_size() << " ldh ";
   LOG_IF(QFATAL, !status.ok())
       << "Snapshot " << FLAGS_enclave_path << " failed : " << status;
 
   // Destroy the enclave.
   asylo::EnclaveFinal final_input;
+  status = manager->DestroyEnclave(client, final_input);
+  LOG_IF(QFATAL, !status.ok())
+      << "Destroy " << FLAGS_enclave_path << " failed: " << status;
+
+  // reload enclave
+  status = manager->LoadEnclave("grpc_example", loader, config);
+  LOG_IF(INFO, status.ok())
+      << "reLoaded " << FLAGS_enclave_path << " : " << status;
+  LOG_IF(QFATAL, !status.ok())
+      << "Load " << FLAGS_enclave_path << " failed: " << status;
+  client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("grpc_example"));
+
+  // Restore the enclave frome its own snapshot succeeds.
+  status = client->EnterAndRestore(snapshot_layout_);
+  LOG_IF(INFO, status.ok())
+      << "Restore " << FLAGS_enclave_path << " : " << status << " ldh ";
+  LOG_IF(QFATAL, !status.ok())
+      << "Restore " << FLAGS_enclave_path << " failed : " << status;
+
+  // Destroy the enclave.
+  //asylo::EnclaveFinal final_input;
   status = manager->DestroyEnclave(client, final_input);
   LOG_IF(QFATAL, !status.ok())
       << "Destroy " << FLAGS_enclave_path << " failed: " << status;
