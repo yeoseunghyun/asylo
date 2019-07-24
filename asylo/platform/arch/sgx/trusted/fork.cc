@@ -323,9 +323,11 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   // calls fork. Send a warning message if there are other threads running
   // during snapshotting, as it could result in undefined behavior.
   if (get_active_enclave_entries() > 2) {
-    LOG(WARNING) << "There are other threads running inside the enclave. Fork "
+    LOG(WARNING) << "There are " << get_active_enclave_entries() 
+				<< " other threads running inside the enclave. Fork "
                     "in multithreaded environment may result "
                     "in undefined behavior or potential security issues.";
+
   }
 
   if (!snapshot_layout) {
@@ -349,7 +351,7 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   }
 
   struct ThreadMemoryLayout thread_layout = GetThreadLayoutForSnapshot();
-/*
+
   if (!thread_layout.thread_base || thread_layout.thread_size <= 0) {
     return Status(error::GoogleError::INTERNAL,
                   "Can't locate the thread calling fork");
@@ -370,7 +372,7 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
     return Status(error::GoogleError::INTERNAL,
                   "Reserved bss section can not hold the enclave bss section");
   }
-*/
+
   // Generate an AES256-GCM-SIV snapshot key.
   CleansingVector<uint8_t> snapshot_key(kSnapshotKeySize);
   if (!RAND_bytes(snapshot_key.data(), kSnapshotKeySize)) {
@@ -584,7 +586,7 @@ Status DecryptAndRestoreThreadStack(
 
 // Restore the current enclave states from an untrusted snapshot.
 Status RestoreForFork(const char *input, size_t input_len) {
-  Cleanup delete_snapshot_key(DeleteSnapshotKey);
+  //Cleanup delete_snapshot_key(DeleteSnapshotKey);
 
   // Block all other enclave entry calls.
   enc_block_ecalls();
@@ -592,9 +594,12 @@ Status RestoreForFork(const char *input, size_t input_len) {
   // There shouldn't be any other ecalls running inside the child enclave at
   // this moment.
   if (get_active_enclave_entries() != 1) {
-    return Status(
+    LOG(INFO) << "entri num : " << get_active_enclave_entries() ;
+    /*
+	return Status(
         error::GoogleError::FAILED_PRECONDITION,
         "There are other enclave entries while restoring the enclave");
+	*/
   }
 
   // Get the information of current enclave layout.

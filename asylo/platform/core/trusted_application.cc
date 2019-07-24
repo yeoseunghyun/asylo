@@ -486,7 +486,17 @@ int __asylo_take_snapshot(char **output, size_t *output_len) {
                     "Enclave not in state RUNNING");
     return status_serializer.Serialize(status);
   }
+  if (get_active_enclave_entries() > 2) {
+    LOG(WARNING) << "There are " << get_active_enclave_entries() 
+				<< " other threads running inside the enclave. Fork "
+                    "in multithreaded environment may result "
+                    "in undefined behavior or potential security issues.";
 
+    status = Status(error::GoogleError::FAILED_PRECONDITION,
+                  "in-enclave running threads");
+    return status_serializer.Serialize(status);
+  }
+ 
   SnapshotLayout snapshot_layout;
   status = TakeSnapshotForFork(&snapshot_layout);
   *enclave_output.MutableExtension(snapshot) = snapshot_layout;
@@ -531,6 +541,7 @@ int __asylo_restore(const char *input, size_t input_len, char **output,
   // message until after switching heaps in RestoreForFork().
   status = RestoreForFork(input, input_len);
 
+  LOG(INFO) << status ;
   if (!status.ok()) {
     // Finalize the enclave as this enclave shouldn't be entered again.
     ThreadManager *thread_manager = ThreadManager::GetInstance();
@@ -541,6 +552,7 @@ int __asylo_restore(const char *input, size_t input_len, char **output,
     delete asylo::UntrustedCacheMalloc::Instance();
     trusted_application->SetState(EnclaveState::kFinalized);
   }
+  LOG(INFO) << "status_serializer.Serialize" ;
 
   return status_serializer.Serialize(status);
 }

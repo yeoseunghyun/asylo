@@ -60,7 +60,8 @@ int ecall_handle_signal(const char *input, bridge_size_t input_len) {
 // on failure.
 int ecall_take_snapshot(char **output, bridge_size_t *output_len) {
   int result = 0;
-  size_t tmp_output_len;
+  size_t tmp_output_len = 0;
+  LOG(INFO) << *output_len;
   try {
     result =
         asylo::__asylo_take_snapshot(output, &tmp_output_len);
@@ -79,7 +80,7 @@ int ecall_take_snapshot(char **output, bridge_size_t *output_len) {
 int ecall_restore(const char *input, bridge_size_t input_len, char **output,
                   bridge_size_t *output_len) {
   int result = 0;
-  size_t tmp_output_len;
+  size_t tmp_output_len = 0;
   try {
     result = asylo::__asylo_restore(input, static_cast<size_t>(input_len),
                                     output, &tmp_output_len);

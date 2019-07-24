@@ -58,12 +58,15 @@ sim_enclave(
 
 enclave_loader(
     name = "hello_world",
-    srcs = ["hello_driver.cc"],
+    srcs = ["hello_driver.cc", "enclave_config.cc"],
     copts = ASYLO_DEFAULT_COPTS,
     enclaves = {"enclave": ":hello_enclave.so"},
     loader_args = ["--enclave_path='{enclave}'"],
     deps = [
         ":hello_cc_proto",
+        "//asylo/identity:descriptions",
+        "//asylo/identity:enclave_assertion_authority_config_cc_proto",
+        "//asylo/identity/sgx:sgx_local_assertion_authority_config_cc_proto",
         "//asylo:enclave_client",
         "//asylo/util:logging",
         "@com_github_gflags_gflags//:gflags_nothreads",

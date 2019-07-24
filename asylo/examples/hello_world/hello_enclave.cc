@@ -16,13 +16,19 @@
  *
  */
 
+#include <sys/wait.h>
+#include <unistd.h>
 #include <cstdint>
 
 #include "absl/strings/str_cat.h"
 #include "asylo/examples/hello_world/hello.pb.h"
 #include "asylo/util/logging.h"
 #include "asylo/trusted_application.h"
+#include "asylo/util/posix_error_space.h"
 #include "asylo/util/status.h"
+#include "asylo/platform/primitives/trusted_runtime.h"
+
+using namespace asylo;
 
 class HelloApplication : public asylo::TrustedApplication {
  public:
@@ -38,12 +44,48 @@ class HelloApplication : public asylo::TrustedApplication {
         input.GetExtension(hello_world::enclave_input_hello).to_greet();
 
     LOG(INFO) << "Hello " << visitor;
-    if (output) {
-      LOG(INFO) << "Incrementing visitor count...";
-      output->MutableExtension(hello_world::enclave_output_hello)
-          ->set_greeting_message(
-              absl::StrCat("Hello ", visitor, "! You are visitor #",
-                           ++visitor_count_, " to this enclave."));
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+      abort();
+    }   
+    if (pid == 0) {
+      // Child enclave.
+
+		if (output) {
+		  LOG(INFO) << "Incrementing visitor count...";
+		  output->MutableExtension(hello_world::enclave_output_hello)
+			  ->set_greeting_message(
+				  absl::StrCat("Hello ", visitor, "! You are visitor #",
+							   ++visitor_count_, " to this enclave."));
+		}
+
+    } else {
+      // Parent enclave.
+      // Wait for the child enclave exits, and checks whether it exited
+      // normally.
+      int status;
+      if (wait(&status) == -1) {
+        return Status(static_cast<error::PosixError>(errno),
+                      absl::StrCat("Error waiting for child: ",
+                                   strerror(errno)));
+      }
+
+		if (output) {
+		  LOG(INFO) << "Incrementing visitor count...";
+		  output->MutableExtension(hello_world::enclave_output_hello)
+			  ->set_greeting_message(
+				  absl::StrCat("Hello ", visitor, "! You are visitor #",
+							   ++visitor_count_, " to this enclave."));
+		}
+
+
+      if (!WIFEXITED(status)) {
+    	return asylo::Status::OkStatus();
+        return Status(error::GoogleError::INTERNAL, "child enclave aborted");
+      }
+
     }
     return asylo::Status::OkStatus();
   }

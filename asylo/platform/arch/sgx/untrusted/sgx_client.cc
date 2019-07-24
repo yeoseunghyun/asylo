@@ -103,6 +103,7 @@ Status SgxClient::Finalize(const char *input, size_t input_len,
   params.PushByCopy(primitives::Extent{input, input_len});
   ASYLO_RETURN_IF_ERROR(primitive_sgx_client_->EnclaveCall(
       primitives::kSelectorAsyloFini, &params));
+  LOG(INFO) << "Finalize output_len " << *output_len;
 
   if (params.empty()) {
     return {error::GoogleError::INVALID_ARGUMENT,
@@ -150,7 +151,7 @@ static Status handle_signal(sgx_enclave_id_t eid, const char *input,
 static Status take_snapshot(sgx_enclave_id_t eid, char **output,
                             size_t *output_len) {
   int result;
-  bridge_size_t bridge_output_len;
+  bridge_size_t bridge_output_len = 0;
   sgx_status_t sgx_status =
       ecall_take_snapshot(eid, &result, output, &bridge_output_len);
   if (output_len) {
@@ -175,7 +176,7 @@ static Status take_snapshot(sgx_enclave_id_t eid, char **output,
 static Status restore(sgx_enclave_id_t eid, const char *input, size_t input_len,
                       char **output, size_t *output_len) {
   int result;
-  bridge_size_t bridge_output_len;
+  bridge_size_t bridge_output_len = 0;
   sgx_status_t sgx_status =
       ecall_restore(eid, &result, input, static_cast<bridge_size_t>(input_len),
                     output, &bridge_output_len);
@@ -394,7 +395,6 @@ Status SgxClient::EnterAndHandleSignal(const EnclaveSignal &signal) {
 Status SgxClient::EnterAndTakeSnapshot(SnapshotLayout *snapshot_layout) {
   char *output_buf = nullptr;
   size_t output_len = 0;
-
   ASYLO_RETURN_IF_ERROR(take_snapshot(primitive_sgx_client_->GetEnclaveId(),
                                       &output_buf, &output_len));
 

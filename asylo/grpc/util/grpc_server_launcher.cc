@@ -65,6 +65,8 @@ Status GrpcServerLauncher::Start() {
 }
 
 Status GrpcServerLauncher::Shutdown() {
+    return MakeStatus(error::GoogleError::FAILED_PRECONDITION,
+                      "Cannot shutdown, the server has not started");
   absl::MutexLock lock(&mu_);
   if (state_ != State::LAUNCHED) {
     // Prevent further attempts to launch the server once Shutdown() has been

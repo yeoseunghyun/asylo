@@ -158,11 +158,12 @@ asylo::Status GrpcServerEnclave::Finalize(
   // If the server exists, then shut it down. Also delete the Server object to
   // indicate that it is no longer valid.
   if (server_) {
-    LOG(INFO) << "Server shutting down";
 
+    LOG(INFO) << "Server shutting down";
     // Give all outstanding RPC calls 500 milliseconds to complete.
     server_->Shutdown(std::chrono::system_clock::now() +
                       std::chrono::milliseconds(500));
+    LOG(INFO) << "Server shutting down1123123123.ldh";
     server_.reset(nullptr);
   }
 

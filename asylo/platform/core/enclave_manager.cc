@@ -171,6 +171,7 @@ Status EnclaveManager::DestroyEnclave(EnclaveClient *client,
   if (!skip_finalize) {
     finalize_status = client->EnterAndFinalize(final_input);
   }
+  LOG_IF(ERROR, !finalize_status.ok()) << "Client's EnterAndFinalize failed: " << finalize_status;
 
   Status status = client->DestroyEnclave();
   LOG_IF(ERROR, !status.ok()) << "Client's DestroyEnclave failed: " << status;

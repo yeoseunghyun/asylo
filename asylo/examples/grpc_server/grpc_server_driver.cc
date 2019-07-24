@@ -79,7 +79,7 @@ class SnapshotDeleter {
 DEFINE_string(enclave_path, "", "Path to enclave to load");
 
 // By default, let the server run for five minutes.
-DEFINE_int32(server_max_lifetime, 10,
+DEFINE_int32(server_max_lifetime, 5,
              "The longest amount of time (in seconds) that the server should "
              "be allowed to run");
 DEFINE_int32(server_lifetime, -1, "Deprecated alias for server_max_lifetime");
@@ -98,7 +98,8 @@ int main(int argc, char *argv[]) {
       &argc, &argv, /*remove_flags=*/true);
 
   // Create a loader object using the enclave_path flag.
-  asylo::SimLoader loader(FLAGS_enclave_path, /*debug=*/true);
+  //asylo::SimLoader loader(FLAGS_enclave_path, /*debug=*/true);
+  asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
 
   // Build an EnclaveConfig object with the address that the gRPC server will
   // run on.
@@ -126,35 +127,40 @@ int main(int argc, char *argv[]) {
 
   // Wait up to FLAGS_server_max_lifetime seconds or for the server to receive
   // the shutdown RPC, whichever happens first.
-  //asylo::EnclaveClient *client = manager->GetClient("grpc_example");
   asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("grpc_example"));
   asylo::EnclaveInput input;
   status = client->EnterAndRun(input, nullptr);
   LOG_IF(QFATAL, !status.ok())
       << "Running " << FLAGS_enclave_path << " failed: " << status;
 
-  snapshot_deleter_.Reset(snapshot_layout_);
-  // Snapshot the enclave.
-  status = client->EnterAndTakeSnapshot(&snapshot_layout_);
-  LOG_IF(INFO, status.ok())
+  do {
+	// Snapshot the enclave.
+	status = client->EnterAndTakeSnapshot(&snapshot_layout_);
+	LOG_IF(INFO, status.ok())
       << "Snapshot " << FLAGS_enclave_path << " : " << snapshot_layout_.data_size() << " ldh ";
-  LOG_IF(QFATAL, !status.ok())
+	LOG_IF(INFO, !status.ok())
       << "Snapshot " << FLAGS_enclave_path << " failed : " << status;
-
+	snapshot_deleter_.Reset(snapshot_layout_);
+  } while (!status.ok());
+/*
   // Destroy the enclave.
   asylo::EnclaveFinal final_input;
   status = manager->DestroyEnclave(client, final_input);
+  LOG(INFO) << status;
   LOG_IF(QFATAL, !status.ok())
       << "Destroy " << FLAGS_enclave_path << " failed: " << status;
-
+  LOG_IF(INFO, status.ok())
+      << "Destroy " << FLAGS_enclave_path << " cleared: " << status;
+*/
+/*
   // reload enclave
-  status = manager->LoadEnclave("grpc_example", loader, config);
+  status = manager->LoadEnclave("grpc_example1", loader, config);
   LOG_IF(INFO, status.ok())
       << "reLoaded " << FLAGS_enclave_path << " : " << status;
   LOG_IF(QFATAL, !status.ok())
       << "Load " << FLAGS_enclave_path << " failed: " << status;
   client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("grpc_example"));
-
+*/
   // Restore the enclave frome its own snapshot succeeds.
   status = client->EnterAndRestore(snapshot_layout_);
   LOG_IF(INFO, status.ok())
@@ -163,7 +169,7 @@ int main(int argc, char *argv[]) {
       << "Restore " << FLAGS_enclave_path << " failed : " << status;
 
   // Destroy the enclave.
-  //asylo::EnclaveFinal final_input;
+  asylo::EnclaveFinal final_input;
   status = manager->DestroyEnclave(client, final_input);
   LOG_IF(QFATAL, !status.ok())
       << "Destroy " << FLAGS_enclave_path << " failed: " << status;
