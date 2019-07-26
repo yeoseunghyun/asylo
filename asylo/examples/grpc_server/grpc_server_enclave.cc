@@ -18,7 +18,9 @@
 
 #include <chrono>
 #include <memory>
+#include <sys/wait.h>
 
+#include "asylo/util/posix_error_space.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
@@ -146,6 +148,35 @@ asylo::Status GrpcServerEnclave::Run(const asylo::EnclaveInput &enclave_input,
                                      asylo::EnclaveOutput *enclave_output) {
   // Wait until the timeout runs out or the server receives a shutdown RPC.
   shutdown_requested_.WaitForNotificationWithTimeout(shutdown_timeout_);
+
+//////////////////////////////////////////////////////////////////////
+    pid_t pid = fork();
+
+    if (pid < 0) {
+      abort();
+    }
+    if (pid == 0) {
+      // Child enclave.
+    //_exit(0);
+
+    } else {
+      // Parent enclave.
+      // Wait for the child enclave exits, and checks whether it exited
+      // normally.
+      int status;
+      if (wait(&status) == -1) {
+        return asylo::Status(static_cast<asylo::error::PosixError>(errno),
+                      absl::StrCat("Error waiting for child: ",
+                                   strerror(errno)));
+      }
+
+      if (!WIFEXITED(status)) {
+        return asylo::Status::OkStatus();
+        //return Status(error::GoogleError::INTERNAL, "child enclave aborted");
+      }
+
+	}
+//////////////////////////////////////////////////////////////////////
 
   return asylo::Status::OkStatus();
 }

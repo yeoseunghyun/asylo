@@ -52,8 +52,7 @@ int main(int argc, char *argv[]) {
   if (!manager_result.ok()) {
     LOG(QFATAL) << "EnclaveManager unavailable: " << manager_result.status();
   }
-  asylo::EnclaveConfig config;
-  config = GetApplicationConfig();
+  asylo::EnclaveConfig config = GetApplicationConfig();
   config.set_enable_fork(true);
 
   asylo::EnclaveManager *manager = manager_result.ValueOrDie();
@@ -74,23 +73,25 @@ int main(int argc, char *argv[]) {
     input.MutableExtension(hello_world::enclave_input_hello)
         ->set_to_greet(name);
 
-    asylo::EnclaveOutput output;
-    status = client->EnterAndRun(input, &output);
+    //asylo::EnclaveOutput output;
+    asylo::EnclaveOutput* output = new asylo::EnclaveOutput();
+    status = client->EnterAndRun(input, output);
+
     if (!status.ok()) {
       LOG(QFATAL) << "EnterAndRun failed: " << status;
     }
-/*
-    if (!output.HasExtension(hello_world::enclave_output_hello)) {
-      //LOG(QFATAL) << "Enclave did not assign an ID for " << name;
-      LOG(INFO) << "Enclave did not assign an ID for " << name;
-    } else {
-*/
-	{
-    std::cout << "Message from enclave: "
-              << output.GetExtension(hello_world::enclave_output_hello)
+    if (!output->HasExtension(hello_world::enclave_output_hello)) {
+    	std::cout << " output " <<
+		  output->GetExtension(hello_world::enclave_output_hello).greeting_message()
+		  << "\n input " <<
+		  input.GetExtension(hello_world::enclave_input_hello).to_greet()
+		  << std::endl;
+      LOG(QFATAL) << "Enclave did not assign an ID for " << name;
+    }
+	std::cout << "Message from enclave: "
+              << output->GetExtension(hello_world::enclave_output_hello)
                      .greeting_message()
               << std::endl;
-	}
   }
 /*
   // Part 2.1 Take snapshot
@@ -118,5 +119,6 @@ int main(int argc, char *argv[]) {
   }
   LOG_IF(INFO, status.ok()) << "FIN";
 
+  _exit(0);
   return 0;
 }

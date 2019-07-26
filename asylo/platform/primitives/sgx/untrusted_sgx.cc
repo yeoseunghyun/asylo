@@ -203,11 +203,10 @@ Status SgxEnclaveClient::EnclaveCallInternal(uint64_t selector,
   ms.ms_buffer = reinterpret_cast<void *>(params);
 
   const ocall_table_t* table = &ocall_table_bridge;
-  LOG(INFO) << "cccc selector " << selector;
+  //LOG(INFO) << "platform/primitives/sgx/untrusted_sgx.cc -- selector " << selector;
   sgx_status_t status =
       sgx_ecall(id_, /*index=*/0, table, &ms, /*is_utility=*/false);
 
-  LOG(INFO) << "bbbbbbbbbbbbbbbbbbb";
   if (status != SGX_SUCCESS) {
     // Return a Status object in the SGX error space.
     return Status(status, "Call to primitives ecall endpoint failed");
@@ -216,7 +215,6 @@ Status SgxEnclaveClient::EnclaveCallInternal(uint64_t selector,
     return Status(
         error::GoogleError::INTERNAL, "Enclave call failed inside enclave");
   }
-  //LOG(INFO) << "aaaaaaaaaaaaaaaaaaaaaa";
   return Status::OkStatus();
 }
 

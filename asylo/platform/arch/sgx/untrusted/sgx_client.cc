@@ -330,6 +330,7 @@ Status SgxClient::EnterAndRun(const EnclaveInput &input,
   free(output_buf);
 
   // Set the output parameter if necessary.
+
   if (output) {
     *output = local_output;
   }

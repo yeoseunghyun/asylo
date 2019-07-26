@@ -541,7 +541,6 @@ int __asylo_restore(const char *input, size_t input_len, char **output,
   // message until after switching heaps in RestoreForFork().
   status = RestoreForFork(input, input_len);
 
-  LOG(INFO) << status ;
   if (!status.ok()) {
     // Finalize the enclave as this enclave shouldn't be entered again.
     ThreadManager *thread_manager = ThreadManager::GetInstance();
@@ -552,7 +551,6 @@ int __asylo_restore(const char *input, size_t input_len, char **output,
     delete asylo::UntrustedCacheMalloc::Instance();
     trusted_application->SetState(EnclaveState::kFinalized);
   }
-  LOG(INFO) << "status_serializer.Serialize" ;
 
   return status_serializer.Serialize(status);
 }

@@ -306,12 +306,12 @@ void SetForkRequested() { fork_requested = true; }
 // thread by copying to untrusted memory.
 Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   // A snapshot is not allowed unless fork is requested from inside an enclave.
-/*
+
   if (!ClearForkRequested()) {
     return Status(error::GoogleError::PERMISSION_DENIED,
                   "Snapshot is not allowed unless fork is requested.ldh");
   }
-*/
+
   // Unblock all ecalls after taking snapshot finishes.
   Cleanup unblock_ecalls(enc_unblock_ecalls);
 

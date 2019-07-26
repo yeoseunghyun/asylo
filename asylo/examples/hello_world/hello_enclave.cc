@@ -20,6 +20,10 @@
 #include <unistd.h>
 #include <cstdint>
 
+extern "C" {
+pid_t enclave_fork();
+}
+
 #include "absl/strings/str_cat.h"
 #include "asylo/examples/hello_world/hello.pb.h"
 #include "asylo/util/logging.h"
@@ -44,20 +48,21 @@ class HelloApplication : public asylo::TrustedApplication {
         input.GetExtension(hello_world::enclave_input_hello).to_greet();
 
     LOG(INFO) << "Hello " << visitor;
-
-    pid_t pid = fork();
+		  output->MutableExtension(hello_world::enclave_output_hello)
+			  ->set_greeting_message("");
+	
+    pid_t pid = enclave_fork();
 
     if (pid < 0) {
       abort();
     }   
     if (pid == 0) {
       // Child enclave.
-
 		if (output) {
 		  LOG(INFO) << "Incrementing visitor count...";
 		  output->MutableExtension(hello_world::enclave_output_hello)
 			  ->set_greeting_message(
-				  absl::StrCat("Hello ", visitor, "! You are visitor #",
+				  absl::StrCat("Hello ", visitor, "(",getpid(),")! You are visitor #",
 							   ++visitor_count_, " to this enclave."));
 		}
 
@@ -71,7 +76,6 @@ class HelloApplication : public asylo::TrustedApplication {
                       absl::StrCat("Error waiting for child: ",
                                    strerror(errno)));
       }
-
 		if (output) {
 		  LOG(INFO) << "Incrementing visitor count...";
 		  output->MutableExtension(hello_world::enclave_output_hello)
@@ -80,10 +84,8 @@ class HelloApplication : public asylo::TrustedApplication {
 							   ++visitor_count_, " to this enclave."));
 		}
 
-
       if (!WIFEXITED(status)) {
-    	return asylo::Status::OkStatus();
-        return Status(error::GoogleError::INTERNAL, "child enclave aborted");
+        //return Status(error::GoogleError::INTERNAL, "child enclave aborted");
       }
 
     }
