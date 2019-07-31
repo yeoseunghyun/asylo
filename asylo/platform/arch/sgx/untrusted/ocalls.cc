@@ -1017,6 +1017,10 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
     return -1;
   }
 
+  LOG(INFO) << "This is snapshot1 : " << &snapshot_layout;
+  FILE * fp = fopen("/home/guestyeo14/snapshot_layout.xml", "w");
+  fwrite(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
+  fclose(fp);
   // The snapshot memory should be freed in both the parent and the child
   // process.
   std::vector<SnapshotDataDeleter> data_deleter_;
@@ -1132,6 +1136,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
     }
 
     std::string child_result = "Child fork succeeded";
+	LOG(INFO) << "child result : " << child_result;
     asylo::Status status = DoSnapshotKeyTransfer(
         manager, client, socket_pair[0], socket_pair[1], /*is_parent=*/false);
     if (!status.ok()) {
@@ -1146,6 +1151,16 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
       errno = EFAULT;
       return -1;
     }
+
+	//Read the snapshot_layout file
+	FILE * fp = fopen("/home/guestyeo14/snapshot_layout.xml", "r");
+	fread(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
+	fclose(fp);
+    LOG(INFO) << "This is snapshot2 : " << &snapshot_layout;
+
+    //Break down the snapshot_layout to check
+	//asylo::SnapshotLayout snapshot_layout2;
+    //LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
 
     // Enters the child enclave and restore the enclave memory.
     status = client->EnterAndRestore(snapshot_layout);

@@ -396,6 +396,7 @@ Status SgxClient::EnterAndHandleSignal(const EnclaveSignal &signal) {
 Status SgxClient::EnterAndTakeSnapshot(SnapshotLayout *snapshot_layout) {
   char *output_buf = nullptr;
   size_t output_len = 0;
+  LOG(INFO) << "EnterAndTakeSnapshot!!!!!!!!!!!!!";
   ASYLO_RETURN_IF_ERROR(take_snapshot(primitive_sgx_client_->GetEnclaveId(),
                                       &output_buf, &output_len));
 
