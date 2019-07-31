@@ -15,7 +15,7 @@ Clone the Asylo project from GitHub into a directory of your choice.
 
 ```bash
 ASYLO="${HOME}"/asylo
-git clone https://github.com/google/asylo.git "${ASYLO}"/sdk
+git clone https://github.com/mosl-dku/asylo.git "${ASYLO}"/sdk
 ```
 
 ## Toolchain
