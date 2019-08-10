@@ -1010,6 +1010,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   // current enclave memory.
   void *enclave_base_address = client->base_address();
   asylo::SnapshotLayout snapshot_layout;
+  asylo::SnapshotLayout snapshot_layout2;
   asylo::Status status = client->EnterAndTakeSnapshot(&snapshot_layout);
   if (!status.ok()) {
     LOG(ERROR) << "EnterAndTakeSnapshot failed: " << status;
@@ -1154,16 +1155,16 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
 
 	//Read the snapshot_layout file
 	FILE * fp = fopen("/home/guestyeo14/snapshot_layout2", "rb");
-	fread(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
+	fread(&snapshot_layout2, sizeof(asylo::SnapshotLayout), 1, fp);
 	fclose(fp);
-    LOG(INFO) << "This is snapshot2 : " << &snapshot_layout;
+    LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
 
     //Break down the snapshot_layout to check
 	//asylo::SnapshotLayout snapshot_layout2;
     //LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
 
     // Enters the child enclave and restore the enclave memory.
-    status = client->EnterAndRestore(snapshot_layout);
+    status = client->EnterAndRestore(snapshot_layout2);
     if (!status.ok()) {
       // Inform the parent process about the failure.
       child_result = "Child EnterAndRestore failed";
