@@ -1018,7 +1018,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   }
 
   LOG(INFO) << "This is snapshot1 : " << &snapshot_layout;
-  FILE * fp = fopen("/home/guestyeo14/snapshot_layout.xml", "w");
+  FILE * fp = fopen("/home/guestyeo14/snapshot_layout2", "wb");
   fwrite(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
   fclose(fp);
   // The snapshot memory should be freed in both the parent and the child
@@ -1153,7 +1153,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
     }
 
 	//Read the snapshot_layout file
-	FILE * fp = fopen("/home/guestyeo14/snapshot_layout.xml", "r");
+	FILE * fp = fopen("/home/guestyeo14/snapshot_layout2", "rb");
 	fread(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
 	fclose(fp);
     LOG(INFO) << "This is snapshot2 : " << &snapshot_layout;
