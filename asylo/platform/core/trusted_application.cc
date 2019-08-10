@@ -541,6 +541,7 @@ int __asylo_restore(const char *input, size_t input_len, char **output,
   // message until after switching heaps in RestoreForFork().
   status = RestoreForFork(input, input_len);
 
+  LOG(INFO) << "I'm back";
   if (!status.ok()) {
     // Finalize the enclave as this enclave shouldn't be entered again.
     ThreadManager *thread_manager = ThreadManager::GetInstance();

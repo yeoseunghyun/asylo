@@ -67,6 +67,7 @@ int main(int argc, char *argv[]) {
 
   //asylo::EnclaveClient *client = manager->GetClient("hello_enclave");
   asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
+  LOG(INFO) << "GetBaseAddress: " << client->base_address();
 
   for (const auto &name : names) {
     asylo::EnclaveInput input;

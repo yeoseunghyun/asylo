@@ -422,10 +422,12 @@ Status SgxClient::EnterAndTakeSnapshot(SnapshotLayout *snapshot_layout) {
 
 Status SgxClient::EnterAndRestore(const SnapshotLayout &snapshot_layout) {
   std::string buf;
+  LOG(INFO) << "Enclave loading is done!!!";
   if (!snapshot_layout.SerializeToString(&buf)) {
     return Status(error::GoogleError::INVALID_ARGUMENT,
                   "Failed to serialize SnapshotLayout");
   }
+  LOG(INFO) << "EnterAndRestore buf: " << buf.data() << " sz: " << buf.size();
 
   char *output = nullptr;
   size_t output_len = 0;

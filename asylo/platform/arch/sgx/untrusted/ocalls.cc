@@ -52,6 +52,8 @@
 #include <ctime>
 #include <iterator>
 #include <vector>
+#include <fstream>
+#include <iostream>
 
 #include "absl/memory/memory.h"
 #include "asylo/enclave.pb.h"
@@ -1010,17 +1012,27 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   // current enclave memory.
   void *enclave_base_address = client->base_address();
   asylo::SnapshotLayout snapshot_layout;
+  asylo::SnapshotLayout snapshot_layout2;
+  asylo::SnapshotLayout snapshot_layout3;
   asylo::Status status = client->EnterAndTakeSnapshot(&snapshot_layout);
   if (!status.ok()) {
     LOG(ERROR) << "EnterAndTakeSnapshot failed: " << status;
     errno = ENOMEM;
     return -1;
   }
+  snapshot_layout3 = snapshot_layout;
 
   LOG(INFO) << "This is snapshot1 : " << &snapshot_layout;
-  FILE * fp = fopen("/home/guestyeo14/snapshot_layout.xml", "w");
+
+/*
+  FILE * fp = fopen("/home/guestyeo14/snapshot_layout3", "bw");
   fwrite(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
   fclose(fp);
+  std::fstream fout("/home/guestyeo14/snapshot_layout3",
+			std::ios::out | std::ios::trunc | std::ios::binary);
+  snapshot_layout.SerializeToOstream(&fout);
+  fout.close();
+*/
   // The snapshot memory should be freed in both the parent and the child
   // process.
   std::vector<SnapshotDataDeleter> data_deleter_;
@@ -1152,11 +1164,17 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
       return -1;
     }
 
+/*
 	//Read the snapshot_layout file
-	FILE * fp = fopen("/home/guestyeo14/snapshot_layout.xml", "r");
+	FILE * fp = fopen("/home/guestyeo14/snapshot_layout3", "br");
 	fread(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
 	fclose(fp);
-    LOG(INFO) << "This is snapshot2 : " << &snapshot_layout;
+    std::fstream fin("/home/guestyeo14/snapshot_layout3",
+				std::ios::in | std::ios::binary);
+    snapshot_layout.ParseFromIstream(&fin);
+    fin.close();
+*/
+    //LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
 
     //Break down the snapshot_layout to check
 	//asylo::SnapshotLayout snapshot_layout2;
