@@ -1008,6 +1008,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
 
   // A snapshot should be taken and restored for fork, take a snapshot of the
   // current enclave memory.
+  // Here, we get the base address
   void *enclave_base_address = client->base_address();
   asylo::SnapshotLayout snapshot_layout;
   asylo::SnapshotLayout snapshot_layout2;
@@ -1098,6 +1099,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
     return pid;
   }
 
+  // Here, we get the size of original enclave
   size_t enclave_size = client->size();
 
   // Parse the config from the enclave to load the child enclave with exactly
@@ -1116,6 +1118,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
       return -1;
     }
     // Load an enclave at the same virtual space as the parent.
+    LOG(INFO) << "base: " << enclave_base_address << " sz: " << enclave_size;
     status = manager->LoadEnclave(enclave_name, *loader, enclave_config,
                                   enclave_base_address, enclave_size);
     if (!status.ok()) {
