@@ -802,13 +802,6 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
       absl::MakeSpan(snapshot_key_ciphertext), &encrypted_snapshot_key_size));
   snapshot_key_ciphertext.resize(encrypted_snapshot_key_size);
 
-  ptr = (long long *)&snapshot_key;
-  LOG(INFO) << "snapshot_key sz: " << sizeof(snapshot_key)
-			<< "\n\t 0x" << std::hex << *ptr
-			<< "\t 0x" << std::hex << *(ptr+1)
-			<< "\n\t 0x" << std::hex << *(ptr+2)
-			<< "\t 0x" << std::hex << *(ptr+3);
-
   // Serializes the encrypted snapshot key and the nonce.
   EncryptedSnapshotKey encrypted_snapshot_key;
   encrypted_snapshot_key.set_ciphertext(snapshot_key_ciphertext.data(),
@@ -823,20 +816,11 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
                   "Failed to serialize EncryptedSnapshotKey");
   }
 
-  ptr = (long long*)encrypted_snapshot_key_string.data();
-  LOG(INFO) << "sent key: " << std::hex << *ptr  << " sz: "
-			<< encrypted_snapshot_key_string.size();
   int fd = enc_untrusted_open("/tmp/snap_key", O_WRONLY);
   enc_untrusted_write(fd,
 			encrypted_snapshot_key_string.data(),
 			encrypted_snapshot_key_string.size());
   close(fd);
-  ptr = (long long *)encrypted_snapshot_key_string.data();
-  LOG(INFO) << "encrypted snapshot_key sz: " << sizeof(snapshot_key)
-			<< "\n\t 0x" << std::hex << *ptr
-			<< "  \t 0x" << std::hex << *(ptr+1)
-			<< "\n\t 0x" << std::hex << *(ptr+2)
-			<< "  \t 0x" << std::hex << *(ptr+3);
 
   // Sends the serialized encrypted snapshot key to the child.
   if (enc_untrusted_write(socket, encrypted_snapshot_key_string.data(),
@@ -863,11 +847,6 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
   rc = enc_untrusted_read(fd, buf, sizeof(buf));
   ptr = (long long *)buf;
   close(fd);
-  LOG(INFO) << "read encrypted_snapshot_key sz: " << rc
-			<< "\n\t 0x" << std::hex << *ptr
-			<< "  \t 0x" << std::hex << *(ptr+1)
-			<< "\n\t 0x" << std::hex << *(ptr+2)
-			<< "  \t 0x" << std::hex << *(ptr+3);
 
   EncryptedSnapshotKey encrypted_snapshot_key;
   if (!encrypted_snapshot_key.ParseFromArray(buf, rc)) {
@@ -882,9 +861,6 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
     return Status(error::GoogleError::INTERNAL,
                   "Failed to serialize EncryptedSnapshotKey");
   }
-  ptr = (long long*)encrypted_snapshot_key_string.data();
-  LOG(INFO) << "recv'd key: " << std::hex << *ptr  << "\n\tsz: "
-			<< encrypted_snapshot_key_string.size();
 
   // Decrypts the snapshot key.
   ByteContainerView associated_data(kSnapshotKeyAssociatedDataBuf,
@@ -903,12 +879,6 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
       absl::MakeSpan(snapshot_key), &snapshot_key_size));
   snapshot_key.resize(snapshot_key_size);
 
-  ptr = (long long *)&snapshot_key;
-  LOG(INFO) << "decrypted snapshot_key sz: " << sizeof(snapshot_key)
-			<< "\n\t 0x" << std::hex << *ptr
-			<< "\t 0x" << std::hex << *(ptr+1)
-			<< "\n\t 0x" << std::hex << *(ptr+2)
-			<< "\t 0x" << std::hex << *(ptr+3);
   // Save the snapshot key inside the enclave for decrypting and restoring the
   // enclave.
   if (!SetSnapshotKey(snapshot_key)) {
