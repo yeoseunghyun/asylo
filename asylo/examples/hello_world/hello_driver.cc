@@ -58,7 +58,10 @@ int main(int argc, char *argv[]) {
   asylo::EnclaveManager *manager = manager_result.ValueOrDie();
   std::cout << "Loading " << FLAGS_enclave_path << std::endl;
   asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
-  asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config);
+  void *addr = (void *)0x7fdbcc000000;
+  size_t sz = 33554432;
+  LOG(INFO) << "base: " << addr << " sz: " << sz;
+  asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config, addr, sz);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
   }

@@ -814,6 +814,12 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
                   "Failed to serialize EncryptedSnapshotKey");
   }
 
+  FILE * fp = fopen("/tmp/snap_key", "wb");
+  fwrite(&encrypted_snapshot_key, sizeof(encrypted_snapshot_key), 1, fp);
+  fclose(fp);
+  long long* ptr = (long long*)encrypted_snapshot_key_string.data();
+  LOG(INFO) << "sent key: " << *ptr  << "\n\tsz: "
+			<< encrypted_snapshot_key_string.size();
   // Sends the serialized encrypted snapshot key to the child.
   if (enc_untrusted_write(socket, encrypted_snapshot_key_string.data(),
                           encrypted_snapshot_key_string.size()) <= 0) {
@@ -837,6 +843,22 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
     return Status(error::GoogleError::INTERNAL,
                   "Failed to parse EncryptedSnapshotKey");
   }
+
+  // to print out string
+  std::string encrypted_snapshot_key_string;
+  if (!encrypted_snapshot_key.SerializeToString(
+          &encrypted_snapshot_key_string)) {
+    return Status(error::GoogleError::INTERNAL,
+                  "Failed to serialize EncryptedSnapshotKey");
+  }
+  long long* ptr = (long long*)encrypted_snapshot_key_string.data();
+  LOG(INFO) << "recv'd key: " << *ptr  << "\n\tsz: "
+			<< encrypted_snapshot_key_string.size();
+
+  // overwrite from saved file
+  FILE * fp = fopen("/tmp/snap_key", "rb");
+  fread(&encrypted_snapshot_key, sizeof(encrypted_snapshot_key), 1, fp);
+  fclose(fp);
 
   // Decrypts the snapshot key.
   ByteContainerView associated_data(kSnapshotKeyAssociatedDataBuf,
