@@ -25,40 +25,39 @@
 #include "asylo/util/status.h"
 
 class HelloApplication : public asylo::TrustedApplication {
- public:
-  HelloApplication() : visitor_count_(0) {}
+	public:
+		HelloApplication() : visitor_count_(0) {}
 
-  asylo::Status Run(const asylo::EnclaveInput &input,
-                    asylo::EnclaveOutput *output) override {
-    if (!input.HasExtension(hello_world::enclave_input_hello)) {
-      return asylo::Status(asylo::error::GoogleError::INVALID_ARGUMENT,
-                           "Expected a HelloInput extension on input.");
-    }
-    std::string visitor =
-        input.GetExtension(hello_world::enclave_input_hello).to_greet();
+		asylo::Status Run(const asylo::EnclaveInput &input,
+				asylo::EnclaveOutput *output) override {
+			if (!input.HasExtension(hello_world::enclave_input_hello)) {
+				return asylo::Status(asylo::error::GoogleError::INVALID_ARGUMENT,
+						"Expected a HelloInput extension on input.");
+			}
+			std::string visitor =
+				input.GetExtension(hello_world::enclave_input_hello).to_greet();
+			LOG(INFO) << "Hello " << visitor;
+			for(unsigned int i=0; i<0xffffffff;i++);
+			for(unsigned int i=0; i<0xffffffff;i++);
+			for(unsigned int i=0; i<0xffffffff;i++);
+			for(unsigned int i=0; i<0xffffffff;i++);
+			for(unsigned int i=0; i<0xffffffff;i++);
+			if (output) {
+				LOG(INFO) << "Incrementing visitor count...";
+				output->MutableExtension(hello_world::enclave_output_hello)
+					->set_greeting_message(
+							absl::StrCat("Hello ", visitor, "! You are visitor #",
+								++visitor_count_, " to this enclave."));
+			}
+			return asylo::Status::OkStatus();
+		}
 
-for(unsigned int i=0; i<0xffffffff;i++);
-for(unsigned int i=0; i<0xffffffff;i++);
-for(unsigned int i=0; i<0xffffffff;i++);
-for(unsigned int i=0; i<0xffffffff;i++);
-for(unsigned int i=0; i<0xffffffff;i++);
-    LOG(INFO) << "Hello " << visitor;
-    if (output) {
-      LOG(INFO) << "Incrementing visitor count...";
-      output->MutableExtension(hello_world::enclave_output_hello)
-          ->set_greeting_message(
-              absl::StrCat("Hello ", visitor, "! You are visitor #",
-                           ++visitor_count_, " to this enclave."));
-    }
-    return asylo::Status::OkStatus();
-  }
-
- private:
-  uint64_t visitor_count_;
+	private:
+		uint64_t visitor_count_;
 };
 
 namespace asylo {
 
-TrustedApplication *BuildTrustedApplication() { return new HelloApplication; }
+	TrustedApplication *BuildTrustedApplication() { return new HelloApplication; }
 
 }  // namespace asylo

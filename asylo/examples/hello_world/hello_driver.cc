@@ -26,27 +26,46 @@
 #include "asylo/util/logging.h"
 #include <signal.h>
 
-
-
+asylo::Status status; 
+asylo::EnclaveManager *manager;
+asylo::EnclaveClient *client;
 ABSL_FLAG(std::string, enclave_path, "", "Path to enclave to load");
 ABSL_FLAG(std::string, names, "",
 		"A comma-separated list of names to pass to the enclave");
 
 struct sigaction old_sa;
 struct sigaction new_sa;
+int hello(int, char** );
+int g_argc;
+char **g_argv;
 
 void signal_handler(int signo)
 {
-std::cout<<"sigusr1 received"<<std::endl;
-exit(0);
+	std::cout<<"sigusr1 received"<<std::endl;
+	asylo::EnclaveFinal final_input;
+	status = manager->DestroyEnclave(client, final_input);
+	if (!status.ok()) {
+		//LOG(QFATAL) << "Destroy " << absl::GetFlag(FLAGS_enclave_path)
+		LOG(INFO) << "Destroy " << absl::GetFlag(FLAGS_enclave_path)
+			<< " failed: " << status;
+	}
+
+	std::cout << "restart main";
+	hello(g_argc, g_argv);
+	exit(0);
 }
 
-int main(int argc, char *argv[]) {
-	// Part 0: Setup
+int main(int argc, char*argv[]){
+	g_argc = argc;
+	g_argv = argv;
+	memset(&new_sa, 0, sizeof(new_sa));
+	new_sa.sa_handler=&signal_handler;
+	sigaction(SIGUSR1,&new_sa,&old_sa);	
+	hello(argc, argv);
+} 
 
-memset(&new_sa, 0, sizeof(new_sa));
-new_sa.sa_handler=&signal_handler;
-sigaction(SIGUSR1,&new_sa,&old_sa);	
+int hello(int argc, char *argv[]) {
+	// Part 0: Setup
 	absl::ParseCommandLine(argc, argv);
 	if (absl::GetFlag(FLAGS_names).empty()) {
 		LOG(QFATAL) << "Must supply a non-empty list of names with --names";
@@ -59,16 +78,16 @@ sigaction(SIGUSR1,&new_sa,&old_sa);
 	if (!manager_result.ok()) {
 		LOG(QFATAL) << "EnclaveManager unavailable: " << manager_result.status();
 	}
-	asylo::EnclaveManager *manager = manager_result.ValueOrDie();
+	manager = manager_result.ValueOrDie();
 	std::cout << "Loading " << absl::GetFlag(FLAGS_enclave_path) << std::endl;
 	asylo::SimLoader loader(absl::GetFlag(FLAGS_enclave_path), /*debug=*/true);
-	asylo::Status status = manager->LoadEnclave("hello_enclave", loader);
+	status = manager->LoadEnclave("hello_enclave", loader);
 	if (!status.ok()) {
 		LOG(QFATAL) << "Load " << absl::GetFlag(FLAGS_enclave_path)
 			<< " failed: " << status;
 	}
 	// Part 2: Secure execution
-	asylo::EnclaveClient *client = manager->GetClient("hello_enclave");
+	client = manager->GetClient("hello_enclave");
 	for (const auto &name : names) {
 		asylo::EnclaveInput input;
 		input.MutableExtension(hello_world::enclave_input_hello)
@@ -93,7 +112,7 @@ sigaction(SIGUSR1,&new_sa,&old_sa);
 		LOG(QFATAL) << "Destroy " << absl::GetFlag(FLAGS_enclave_path)
 			<< " failed: " << status;
 	}
-	
-	
+
+
 	return 0;
 }
