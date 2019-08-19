@@ -376,11 +376,24 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
 
   // Generate an AES256-GCM-SIV snapshot key.
   CleansingVector<uint8_t> snapshot_key(kSnapshotKeySize);
+/**/
   if (!RAND_bytes(snapshot_key.data(), kSnapshotKeySize)) {
     return Status(error::GoogleError::INTERNAL,
                   absl::StrCat("Can not generate the snapshot key: ",
                                BsslLastErrorString()));
   }
+/**/
+  long long one[4];
+  one[0] = 1; one[1] = 1; one[2] = 1; one[3] = 1;
+  memcpy(snapshot_key.data(), &one, sizeof(one));
+  long long *ptr = (long long *)snapshot_key.data();
+  LOG(INFO) << "snapshot_key sz: " << sizeof(snapshot_key)
+			<< "\n\t 0x" << std::hex << *ptr
+			<< "\t 0x" << std::hex << *(ptr+1)
+			<< "\n\t 0x" << std::hex << *(ptr+2)
+			<< "\t 0x" << std::hex << *(ptr+3);
+
+
   if (!SetSnapshotKey(snapshot_key)) {
     return Status(error::GoogleError::INTERNAL,
                   "Failed to save snapshot key inside enclave");
@@ -802,7 +815,7 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
       absl::MakeSpan(snapshot_key_ciphertext), &encrypted_snapshot_key_size));
   snapshot_key_ciphertext.resize(encrypted_snapshot_key_size);
 
-  ptr = (long long *)&snapshot_key;
+  ptr = (long long *)snapshot_key.data();
   LOG(INFO) << "snapshot_key sz: " << sizeof(snapshot_key)
 			<< "\n\t 0x" << std::hex << *ptr
 			<< "\t 0x" << std::hex << *(ptr+1)
@@ -826,7 +839,9 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
   ptr = (long long*)encrypted_snapshot_key_string.data();
   LOG(INFO) << "sent key: " << std::hex << *ptr  << " sz: "
 			<< encrypted_snapshot_key_string.size();
-  int fd = enc_untrusted_open("/tmp/snap_key", O_WRONLY);
+  int flag = O_CREAT | O_RDWR;
+  int mode S_IRWXU;
+  int fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
   enc_untrusted_write(fd,
 			encrypted_snapshot_key_string.data(),
 			encrypted_snapshot_key_string.size());
@@ -903,8 +918,8 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
       absl::MakeSpan(snapshot_key), &snapshot_key_size));
   snapshot_key.resize(snapshot_key_size);
 
-  ptr = (long long *)&snapshot_key;
-  LOG(INFO) << "decrypted snapshot_key sz: " << sizeof(snapshot_key)
+  ptr = (long long *)snapshot_key.data();
+  LOG(INFO) << "decrypted snapshot_key sz: " << snapshot_key.size()
 			<< "\n\t 0x" << std::hex << *ptr
 			<< "\t 0x" << std::hex << *(ptr+1)
 			<< "\n\t 0x" << std::hex << *(ptr+2)
