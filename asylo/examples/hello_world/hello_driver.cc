@@ -41,16 +41,7 @@ char **g_argv;
 
 void signal_handler(int signo)
 {
-	std::cout<<"sigusr1 received"<<std::endl;
-	asylo::EnclaveFinal final_input;
-	status = manager->DestroyEnclave(client, final_input);
-	if (!status.ok()) {
-		//LOG(QFATAL) << "Destroy " << absl::GetFlag(FLAGS_enclave_path)
-		LOG(INFO) << "Destroy " << absl::GetFlag(FLAGS_enclave_path)
-			<< " failed: " << status;
-	}
-
-	std::cout << "restart main";
+	LOG(INFO)<<"SIGUSR1 Received : Restart main\n";
 	hello(g_argc, g_argv);
 	exit(0);
 }

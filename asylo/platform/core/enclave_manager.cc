@@ -289,10 +289,7 @@ Status EnclaveManager::LoadEnclaveInternal(const std::string &name,
   {
     absl::ReaderMutexLock lock(&client_table_lock_);
     if (client_by_name_.find(name) != client_by_name_.end()) {
-      Status status(error::GoogleError::ALREADY_EXISTS,
-                    "Name already exists: " + name);
-      LOG(ERROR) << "LoadEnclave failed: " << status;
-      return status;
+      client_by_name_.erase(name);
     }
   }
 
