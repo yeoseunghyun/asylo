@@ -1,7 +1,7 @@
 # Asylo - Manual Installation
 
 The following steps can be used to manually install
-[Asylo](https://github.com/google/asylo) and its dependencies. The manual
+[Asylo](https://github.com/mosl-dku/asylo) and its dependencies. The manual
 installation process and Docker image creation process have both primarily been
 tested on Debian Buster, but may also be used to install Asylo on other Linux
 distros and versions.
@@ -15,7 +15,7 @@ Clone the Asylo project from GitHub into a directory of your choice.
 
 ```bash
 ASYLO="${HOME}"/asylo
-git clone https://github.com/google/asylo.git "${ASYLO}"/sdk
+git clone https://github.com/mosl-dku/asylo.git "${ASYLO}"/sdk
 ```
 
 ## Toolchain
