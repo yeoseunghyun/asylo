@@ -40,7 +40,21 @@ asylo_grpc_proto_library(
     name = "translator_server_grpc_proto",
     srcs = ["translator_server.proto"],
 )
+'''
+cc_library(
+        name = "tensor",
+        hdrs=[
+           # "@tensorflow_project//tensorflow/core/framework/tensor.h",
+            "@tensorflow_project//core/framework/tensor_shape.h",
+           # "@tensorflow_project//framework/tensor_slice.h",
+           # "@tensorflow_project//framework/tensor_types.h",
+           # "@tensorflow_project//framework/tensor_util.h",
 
+
+        ],
+
+)
+'''
 # The implementation of the translation server.
 cc_library(
     name = "translator_server",
@@ -52,9 +66,10 @@ cc_library(
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
+	"@com_google_absl//absl/synchronization",
+	#"@tensorflow_project//tensorflow/core:tensor_shape", 
     ],
 )
-
 # Contains extensions to enclave protos.
 asylo_proto_library(
     name = "grpc_server_config_proto",
@@ -122,3 +137,6 @@ enclave_test(
         "@com_google_googletest//:gtest",
     ],
 )
+
+
+

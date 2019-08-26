@@ -84,7 +84,7 @@ asylo::Status GrpcServerEnclave::Initialize(
 
   // Create a ServerBuilder object to set up the server.
   ::grpc::ServerBuilder builder;
-
+  builder.SetMaxReceiveMessageSize(1000000000);
   // Add a listening port to the server.
   //
   // Note: This gRPC server is hosted with InsecureServerCredentials. This
@@ -97,7 +97,6 @@ asylo::Status GrpcServerEnclave::Initialize(
 
   // Add the translator service to the server.
   builder.RegisterService(&service_);
-
   // Start the server.
   server_ = builder.BuildAndStart();
   if (!server_) {

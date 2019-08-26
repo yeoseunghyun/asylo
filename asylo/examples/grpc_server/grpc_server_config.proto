@@ -23,5 +23,5 @@ import "asylo/enclave.proto";
 extend asylo.EnclaveConfig {
   // The address that the gRPC server inside the enclave will be hosted on.
   // Required.
-  optional string server_address = 65537;
+  optional string server_address = 34567;
 }
