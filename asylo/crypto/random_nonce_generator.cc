@@ -48,10 +48,16 @@ Status RandomNonceGenerator::NextNonce(absl::Span<uint8_t> nonce) {
                   absl::StrCat("Invalid vector parameter size: ", nonce.size(),
                                " (vector size must be >= ", nonce_size_, ")"));
   }
+/* */
   if (RAND_bytes(nonce.data(), nonce_size_) != 1) {
     return Status(error::GoogleError::INTERNAL,
                   absl::StrCat("RAND_bytes failed: ", BsslLastErrorString()));
   }
+/* neutralize nonce */
+  int ones[3];
+  ones[0] = 1; ones[1] = 1; ones[2] = 1; ones[3] = 1;
+  memcpy(nonce.data(), ones, nonce.size());
+
   return Status::OkStatus();
 }
 

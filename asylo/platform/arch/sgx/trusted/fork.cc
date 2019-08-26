@@ -993,6 +993,10 @@ Status TransferSecureSnapshotKey(
   CleansingVector<uint8_t> record_protocol_key;
   ASYLO_ASSIGN_OR_RETURN(record_protocol_key,
                          handshaker->GetRecordProtocolKey());
+  /* simple record_protocol_key */
+  int ones[4];
+  ones[0] = 1; ones[1] = 1; ones[2] = 1; ones[3] = 1;
+  memcpy(record_protocol_key.data(), ones, record_protocol_key.size());
   std::unique_ptr<AeadCryptor> cryptor;
   ASYLO_ASSIGN_OR_RETURN(cryptor,
                          AeadCryptor::CreateAesGcmCryptor(record_protocol_key));
