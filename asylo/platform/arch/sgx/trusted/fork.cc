@@ -385,7 +385,7 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
 /**/
   long long one[4];
   one[0] = 1; one[1] = 1; one[2] = 1; one[3] = 1;
-  memcpy(snapshot_key.data(), &one, sizeof(one));
+  memcpy(snapshot_key.data(), &one, snapshot_key.size());
   long long *ptr = (long long *)snapshot_key.data();
   LOG(INFO) << "snapshot_key sz: " << sizeof(snapshot_key)
 			<< "\n\t 0x" << std::hex << *ptr
