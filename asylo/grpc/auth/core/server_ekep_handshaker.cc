@@ -128,6 +128,10 @@ ServerEkepHandshaker::Result ServerEkepHandshaker::HandleHandshakeMessage(
     case CLIENT_PRECOMMIT:
       expected_message_type_ = CLIENT_ID;
       status = HandleClientPrecommit(handshake_message, output);
+      LOG(INFO) << "HandleClientPrecommit(msg); \n "
+      			<< ">>\tmsg_type: " << HandshakeMessageType_Name(message_type) << " --> "
+				<< "(expected) "<< HandshakeMessageType_Name(expected_message_type_)
+				<< "\n>>\tmsg:\n"<< handshake_message.DebugString();
       break;
     case CLIENT_ID:
       expected_message_type_ = CLIENT_FINISH;

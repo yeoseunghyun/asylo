@@ -715,14 +715,17 @@ Status RunEkepHandshake(EkepHandshaker *handshaker, bool is_parent,
 
   // Loop till the handshake finishes.
   char buf[1024];
+  memset(buf, 0, sizeof(buf));
   while (result == EkepHandshaker::Result::IN_PROGRESS) {
     do {
       outgoing_bytes.clear();
       // Use MSG_PEEK flag here to read the data without removing it from the
       // receiving queue.
       ssize_t bytes_received =
-          enc_untrusted_recvfrom(socket, buf, sizeof(buf), MSG_PEEK,
-                                 /*src_addr=*/nullptr, /*addrlen=*/nullptr);
+          //enc_untrusted_recvfrom(socket, buf, sizeof(buf), MSG_PEEK,
+          //                       /*src_addr=*/nullptr, /*addrlen=*/nullptr);
+          enc_untrusted_read(socket, buf, sizeof(buf) );
+		  enc_untrusted_lseek(socket, SEEK_CUR, -bytes_received);
       if (bytes_received <= 0) {
         return Status(static_cast<error::PosixError>(errno), "Read failed");
       }
@@ -742,8 +745,9 @@ Status RunEkepHandshake(EkepHandshaker *handshaker, bool is_parent,
         bytes_used -= unused_bytes_size;
       }
       // Remove the used data from the receiving buffer.
-      enc_untrusted_recvfrom(socket, buf, bytes_used, /*flag=*/0,
-                             /*src_addr=*/nullptr, /*addrlen=*/nullptr);
+      //enc_untrusted_recvfrom(socket, buf, bytes_used, /*flag=*/0,
+      //                       /*src_addr=*/nullptr, /*addrlen=*/nullptr);
+      enc_untrusted_read(socket, buf, bytes_used );
     } while (result == EkepHandshaker::Result::NOT_ENOUGH_DATA);
 
     if (result == EkepHandshaker::Result::ABORTED) {
@@ -874,7 +878,9 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
 
   // restore key from saved file
   int fd;
-  fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
+  int flag = O_CREAT | O_RDWR;
+  int mode S_IRWXU;
+  fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
   rc = enc_untrusted_read(fd, buf, sizeof(buf));
   ptr = (long long *)buf;
   close(fd);
@@ -978,8 +984,15 @@ Status TransferSecureSnapshotKey(
     handshaker = ServerEkepHandshaker::Create(options);
   }
 
+  int flag = O_CREAT | O_RDWR | O_TMPFILE;
+  int mode S_IRWXU;
+  int fd1 = enc_untrusted_open("/tmp/ekep1", flag, mode);
+  int fd2 = enc_untrusted_open("/tmp/ekep2", flag, mode);
+
   ASYLO_RETURN_IF_ERROR(RunEkepHandshake(handshaker.get(), is_parent,
-                                         fork_handshake_config.socket()));
+                                         //fork_handshake_config.socket()));
+                                         fd));
+  enc_untrusted_close(fd);
 
   // Get peer identity from the handshake, and compare it with the identity
   // of the current enclave.

@@ -66,7 +66,8 @@ std::unique_ptr<google::protobuf::Message> CreateHandshakeMessage(
 EkepHandshaker::Result EkepHandshaker::NextHandshakeStep(
     const char *incoming_bytes, size_t incoming_bytes_size,
     std::string *outgoing_bytes) {
-  VLOG(2) << "Received " << incoming_bytes_size << " bytes from peer";
+  //VLOG(2) << "Received " << incoming_bytes_size << " bytes from peer";
+  LOG(INFO) << "Received " << incoming_bytes_size << " bytes from peer";
 
   if (IsHandshakeCompleted()) {
     LOG(DFATAL) << "NextHandshakeStep() was called on a handshaker that was "
@@ -95,6 +96,7 @@ EkepHandshaker::Result EkepHandshaker::NextHandshakeStep(
     result = StartHandshake(outgoing_bytes);
   } else {
     // Process bytes from the peer.
+    LOG(INFO) << "NextHandshakeStep: sz("<< incoming_bytes_size << ") \n" << incoming_bytes;
     input_stream_.AddBuffer(incoming_bytes, incoming_bytes_size);
 
     do {
@@ -105,11 +107,17 @@ EkepHandshaker::Result EkepHandshaker::NextHandshakeStep(
       // Continue processing data from the peer while there are still leftover
       // bytes from the peer and the handshaker has not encoded a response
       // frame.
+      LOG(INFO) << "input_stream_.RemainingByteCount(): " << input_stream_.RemainingByteCount();
+      LOG(INFO) << "outgoing_bytes("<<outgoing_bytes<<") isempty?" << outgoing_bytes->empty();
     } while (input_stream_.RemainingByteCount() != 0 &&
              outgoing_bytes->empty());
   }
+  if (result != Result::COMPLETED) {
+	return result;
+  }
 
-  if (!outgoing_bytes->empty() && input_stream_.RemainingByteCount() != 0) {
+  if (!outgoing_bytes->empty() && input_stream_.RemainingByteCount() != 0 &&
+	  result == EkepHandshaker::Result::COMPLETED) {
     // A handshake step was completed and the handshake is still in progress but
     // there are remaining bytes left over. This is not allowed at any step in
     // the protocol.
@@ -197,8 +205,9 @@ Status EkepHandshaker::ParseFrameMessage(uint32_t message_size,
                                          google::protobuf::io::ZeroCopyInputStream *input,
                                          google::protobuf::Message *message) const {
   if (!message->ParseFromBoundedZeroCopyStream(input, message_size)) {
-    return Status(Abort_ErrorCode_DESERIALIZATION_FAILED,
-                  "Failed to deserialize handshake message");
+	LOG(INFO) << "ParseFromBoundedZeroCopyStream(input, msg_sz: " << message_size;
+    //return Status(Abort_ErrorCode_DESERIALIZATION_FAILED,
+    //              "Failed to deserialize handshake message");
   }
   return Status::OkStatus();
 }
@@ -266,8 +275,8 @@ EkepHandshaker::Result EkepHandshaker::DecodeAndHandleFrame(
     return Result::ABORTED;
   }
 
-  VLOG(2) << "Received " << HandshakeMessageType_Name(message_type)
-          << " from peer";
+  LOG(INFO) << "Received " << HandshakeMessageType_Name(message_type)
+          << " from peer, sz: "<< message_size;
 
   if ((message_type != GetExpectedMessageType()) && (message_type != ABORT)) {
     // Don't bother decoding an unexpected message, unless it's an ABORT.
@@ -276,6 +285,8 @@ EkepHandshaker::Result EkepHandshaker::DecodeAndHandleFrame(
     return Result::ABORTED;
   }
 
+  LOG(INFO) << "if (input_stream.RemainingByteCount " << input_stream_.RemainingByteCount() 
+			<< " < message_size) " << message_size;
   if (input_stream_.RemainingByteCount() < message_size) {
     // Not enough bytes to parse the frame message. Rewind the internal stream
     // since the frame was not consumed.
@@ -300,7 +311,9 @@ EkepHandshaker::Result EkepHandshaker::DecodeAndHandleFrame(
     return Result::ABORTED;
   }
 
-  VLOG(2) << message->DebugString();
+  LOG(INFO) << "Entire msg TYPE:" << HandshakeMessageType_Name(message_type) << "\n" << message->DebugString();
+  LOG(INFO) << "msg->DebugString length: " <<message->DebugString().length();
+  LOG(INFO) << "msg_size: " << message_size;
 
   if (message_type == ABORT) {
     const Abort *abort_message = dynamic_cast<const Abort *>(message.get());
@@ -312,7 +325,10 @@ EkepHandshaker::Result EkepHandshaker::DecodeAndHandleFrame(
 
   // Add all consumed bytes to the transcript and expunge them.
   UpdateTranscriptWithIncomingBytes();
+  LOG(INFO) << "ByteCount: " << input_stream_.ByteCount() << " RemainingByteCount: " << input_stream_.RemainingByteCount();
   input_stream_.TrimFront();
+  //input_stream_.Skip(input_stream_.RemainingByteCount());
+  LOG(INFO) << "After input_stream_.TrimFron(), inputStream_.RemainingByteCount() " << input_stream_.RemainingByteCount();
 
   return HandleHandshakeMessage(message_type, *message, output);
 }

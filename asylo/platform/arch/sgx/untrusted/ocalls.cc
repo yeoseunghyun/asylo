@@ -1077,6 +1077,7 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   // Create a socket pair used for communication between the parent and child
   // enclave. |socket_pair[0]| is used by the parent enclave and
   // |socket_pair[1]| is used by the child enclave.
+  // to use with remote host, we need to use two sockets, instead of socketpair
   int socket_pair[2];
   if (socketpair(AF_LOCAL, SOCK_STREAM, 0, socket_pair) < 0) {
     LOG(ERROR) << "Failed to create socket pair";
