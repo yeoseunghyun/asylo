@@ -1,0 +1,1 @@
+bazel run --config=sgx asylo/examples/hello_world -- --names="MOSL"

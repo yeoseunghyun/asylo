@@ -19,6 +19,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <signal.h>
 
 #include "absl/strings/str_split.h"
 #include "asylo/client.h"
@@ -35,7 +36,39 @@ DEFINE_string(names, "",
 
 asylo::EnclaveConfig GetApplicationConfig();
 
-int main(int argc, char *argv[]) {
+asylo::Status status; 
+asylo::EnclaveManager *manager;
+asylo::EnclaveClient *client;
+
+struct sigaction old_sa;
+struct sigaction new_sa;
+int hello(int, char** );
+int g_argc;
+char **g_argv;
+
+void signal_handler(int signo)
+{
+	LOG(INFO)<<"SIGUSR1 Received : Restart main\n";
+/*	asylo::EnclaveFinal final_input;
+	status = manager->DestroyEnclave(client, final_input);
+	if (!status.ok()) {
+	  LOG(QFATAL) << "Destroy " << FLAGS_enclave_path << " failed: " << status;
+	}
+	LOG_IF(INFO, status.ok()) << "FIN";*/
+	hello(g_argc, g_argv);
+	exit(0);
+}
+
+int main(int argc, char*argv[]){
+	g_argc = argc;
+	g_argv = argv;
+	memset(&new_sa, 0, sizeof(new_sa));
+	new_sa.sa_handler=&signal_handler;
+	sigaction(SIGUSR1,&new_sa,&old_sa);	
+	hello(argc, argv);
+} 
+
+int hello(int argc, char *argv[]) {
   // Part 0: Setup
   ::google::ParseCommandLineFlags(&argc, &argv,
                                   /*remove_flags=*/true);
@@ -55,13 +88,15 @@ int main(int argc, char *argv[]) {
   asylo::EnclaveConfig config = GetApplicationConfig();
   config.set_enable_fork(true);
 
-  asylo::EnclaveManager *manager = manager_result.ValueOrDie();
+  //asylo::EnclaveManager *manager = manager_result.ValueOrDie();
+  manager = manager_result.ValueOrDie();
   std::cout << "Loading " << FLAGS_enclave_path << std::endl;
   asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
   void *addr = (void *)0x7fdbcc000000;
   size_t sz = 33554432;
   LOG(INFO) << "base: " << addr << " sz: " << sz;
-  asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config, addr, sz);
+  //asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config, addr, sz);
+  status = manager->LoadEnclave("hello_enclave", loader, config, addr, sz);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
   }
@@ -69,7 +104,8 @@ int main(int argc, char *argv[]) {
   // Part 2: Secure execution
 
   //asylo::EnclaveClient *client = manager->GetClient("hello_enclave");
-  asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
+  //asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
+  client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
 
   for (const auto &name : names) {
     asylo::EnclaveInput input;
