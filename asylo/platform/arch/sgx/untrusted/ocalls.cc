@@ -1079,11 +1079,20 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   // |socket_pair[1]| is used by the child enclave.
   // to use with remote host, we need to use two sockets, instead of socketpair
   int socket_pair[2];
+  /*
+		establish socket_pair with two sockets call, we are not using socketpair
+    because it runs on remote hosts
+
   if (socketpair(AF_LOCAL, SOCK_STREAM, 0, socket_pair) < 0) {
     LOG(ERROR) << "Failed to create socket pair";
     errno = EFAULT;
     return -1;
   }
+  */
+  struct sockaddr_in serveraddr;
+  struct sockaddr_in cliaddr;
+  socklen_t client_len;
+  socklen_t server_len;
 
   // Create a pipe used to pass the child process fork state to the parent
   // process. If the child process failed to restore the enclave, the parent
@@ -1113,6 +1122,40 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   }
 
   if (pid == 0) {
+    //child
+
+    bzero(&serveraddr, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serveraddr.sin_port = htons(8888);
+    server_len = sizeof(serveraddr);
+		int ret;
+    do {
+			if ((socket_pair[1] = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		    LOG(ERROR) << "Failed to create socket pair";
+		    errno = EFAULT;
+		    return -1;
+		  }
+			ret = connect(socket_pair[1], (struct sockaddr *)&serveraddr, server_len);
+		} while (ret < 0);
+
+		if ((socket_pair[0] = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	    LOG(ERROR) << "Failed to create socket pair";
+	    errno = EFAULT;
+	    return -1;
+	  }
+
+    bzero(&cliaddr, sizeof(cliaddr));
+    cliaddr.sin_family = AF_INET;
+    cliaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    cliaddr.sin_port = htons(8889); //cli port
+
+		int optval = 1;
+    setsockopt(socket_pair[0], SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    bind(socket_pair[0], (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+    listen(socket_pair[0], 1);
+    accept(socket_pair[0], (struct sockaddr *)&cliaddr, &client_len);
+
     if (close(pipefd[0]) < 0) {
       LOG(ERROR) << "failed to close pipefd: " << strerror(errno);
       errno = EFAULT;
@@ -1188,6 +1231,38 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
       return -1;
     }
   } else {
+    //parent
+		if ((socket_pair[1] = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	    LOG(ERROR) << "Failed to create socket pair";
+	    errno = EFAULT;
+	    return -1;
+	  }
+
+    bzero(&serveraddr, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serveraddr.sin_port = htons(8888); //server_port
+
+		int optval = 1;
+    setsockopt(socket_pair[1], SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    bind(socket_pair[1], (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+    listen(socket_pair[1], 1);
+    accept(socket_pair[1], (struct sockaddr *)&serveraddr, &server_len);
+
+    cliaddr.sin_family = AF_INET;
+    cliaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    cliaddr.sin_port = htons(8889);
+    client_len = sizeof(cliaddr);
+		int ret;
+    do {
+			if ((socket_pair[0] = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		    LOG(ERROR) << "Failed to create socket pair";
+		    errno = EFAULT;
+		    return -1;
+		  }
+			ret = connect(socket_pair[0], (struct sockaddr *)&cliaddr, client_len);
+		} while (ret < 0);
+
     if (close(pipefd[1]) < 0) {
       LOG(ERROR) << "Failed to close pipefd: " << strerror(errno);
       errno = EFAULT;
