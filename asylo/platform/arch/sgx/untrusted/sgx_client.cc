@@ -177,6 +177,7 @@ static Status restore(sgx_enclave_id_t eid, const char *input, size_t input_len,
                       char **output, size_t *output_len) {
   int result;
   bridge_size_t bridge_output_len = 0;
+  LOG(INFO) << "restore, entering enclave";
   sgx_status_t sgx_status =
       ecall_restore(eid, &result, input, static_cast<bridge_size_t>(input_len),
                     output, &bridge_output_len);
@@ -430,6 +431,7 @@ Status SgxClient::EnterAndRestore(const SnapshotLayout &snapshot_layout) {
   char *output = nullptr;
   size_t output_len = 0;
 
+  LOG(INFO) << "EnterAndRestore";
   ASYLO_RETURN_IF_ERROR(restore(primitive_sgx_client_->GetEnclaveId(),
                                 buf.data(), buf.size(), &output, &output_len));
 

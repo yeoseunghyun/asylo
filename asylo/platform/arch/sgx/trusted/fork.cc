@@ -190,6 +190,7 @@ Status DecryptFromUntrustedMemory(AeadCryptor *cryptor,
                                   size_t *actual_plaintext_size) {
   // The address stored in snapshot are 64-bit integers, they need to be casted
   // to pointer type before decryption.
+  LOG(INFO) << "DecryptFromUntrustedMemory";
   void *source_base =
       reinterpret_cast<void *>(snapshot_entry.ciphertext_base());
   size_t source_size = static_cast<size_t>(snapshot_entry.ciphertext_size());
@@ -207,6 +208,9 @@ Status DecryptFromUntrustedMemory(AeadCryptor *cryptor,
   std::vector<uint8_t> nonce(
       reinterpret_cast<uint8_t *>(nonce_base),
       reinterpret_cast<uint8_t *>(nonce_base) + nonce_size);
+
+  LOG(INFO) << "DecryptFromUntrustedMemory, \nbase: " << std::hex << source_base
+			<< " nonce: " << std::hex << nonce_base;
 
   // Use the enclave address being restored as the associated data to make sure
   // that it's restoring from the same address space in the parent enclave.
@@ -254,6 +258,7 @@ Status EncryptToSnapshot(AeadCryptor *cryptor, void *source_base,
 Status DecryptFromSnapshot(
     AeadCryptor *cryptor, void *destination_base, size_t destination_size,
     const google::protobuf::RepeatedPtrField<SnapshotLayoutEntry> &entry) {
+	LOG(INFO) << "DecryptFromSnapshot";
   uint8_t *current_position = reinterpret_cast<uint8_t *>(destination_base);
   size_t bytes_left = destination_size;
 
@@ -382,10 +387,11 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
                   absl::StrCat("Can not generate the snapshot key: ",
                                BsslLastErrorString()));
   }
-/**/
+/*
   long long one[4];
   one[0] = 1; one[1] = 1; one[2] = 1; one[3] = 1;
   memcpy(snapshot_key.data(), &one, sizeof(one));
+*/
   long long *ptr = (long long *)snapshot_key.data();
   LOG(INFO) << "snapshot_key sz: " << sizeof(snapshot_key)
 			<< "\n\t 0x" << std::hex << *ptr
@@ -601,6 +607,7 @@ Status DecryptAndRestoreThreadStack(
 // Restore the current enclave states from an untrusted snapshot.
 Status RestoreForFork(const char *input, size_t input_len) {
   //Cleanup delete_snapshot_key(DeleteSnapshotKey);
+  LOG(INFO) << "RestoreForFork";
 
   // Block all other enclave entry calls.
   enc_block_ecalls();
@@ -874,7 +881,9 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
 
   // restore key from saved file
   int fd;
-  fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
+  int flag = O_CREAT | O_RDWR;
+  int mode S_IRWXU;
+  fd = enc_untrusted_open("/tmp/snap_key2", flag, mode);
   rc = enc_untrusted_read(fd, buf, sizeof(buf));
   ptr = (long long *)buf;
   close(fd);

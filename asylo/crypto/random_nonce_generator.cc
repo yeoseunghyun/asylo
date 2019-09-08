@@ -53,11 +53,11 @@ Status RandomNonceGenerator::NextNonce(absl::Span<uint8_t> nonce) {
     return Status(error::GoogleError::INTERNAL,
                   absl::StrCat("RAND_bytes failed: ", BsslLastErrorString()));
   }
-/* neutralize nonce */
+/* neutralize nonce
   int ones[3];
   ones[0] = 1; ones[1] = 1; ones[2] = 1; ones[3] = 1;
   memcpy(nonce.data(), ones, nonce.size());
-
+*/
   return Status::OkStatus();
 }
 
