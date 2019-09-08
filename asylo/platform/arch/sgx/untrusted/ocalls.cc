@@ -997,8 +997,10 @@ int ImportSnapshotFromFile(FILE *fp,
     size_t sz= reinterpret_cast<size_t>(e.ciphertext_size());
     LOG(INFO) << "data[" << i << "]: \nbase: " <<std::hex << base
 			  << " sz: 0x" << std::hex << sz;
-    //ret += fread(nb, nsz, 1, fp);
-    //ret += fread(base, sz, 1, fp);
+    ret += fread(nb, nsz, 1, fp);
+	char *buf = (char *)malloc(sz);
+    ret += fread(buf, sz, 1, fp);
+    memcpy(base, buf, sz);
   }
   return ret;
 }
@@ -1215,10 +1217,10 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
 	LOG(INFO) << "This is snapshot img : ";
 	fp = fopen("/tmp/snapshot2", "rb");
   ImportSnapshotFromFile(fp, snapshot_layout.data());
-  ImportSnapshotFromFile(fp, snapshot_layout2.bss());
-  ImportSnapshotFromFile(fp, snapshot_layout2.heap());
-  ImportSnapshotFromFile(fp, snapshot_layout2.thread());
-  ImportSnapshotFromFile(fp, snapshot_layout2.stack());
+  ImportSnapshotFromFile(fp, snapshot_layout.bss());
+  ImportSnapshotFromFile(fp, snapshot_layout.heap());
+  ImportSnapshotFromFile(fp, snapshot_layout.thread());
+  ImportSnapshotFromFile(fp, snapshot_layout.stack());
 	fclose(fp);
 
     //Break down the snapshot_layout to check
@@ -1226,7 +1228,8 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
     //LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
 
     // Enters the child enclave and restore the enclave memory.
-    status = client->EnterAndRestore(snapshot_layout2);
+    //status = client->EnterAndRestore(snapshot_layout2);
+    status = client->EnterAndRestore(snapshot_layout);
     if (!status.ok()) {
       // Inform the parent process about the failure.
       child_result = "Child EnterAndRestore failed";
