@@ -190,7 +190,6 @@ Status DecryptFromUntrustedMemory(AeadCryptor *cryptor,
                                   size_t *actual_plaintext_size) {
   // The address stored in snapshot are 64-bit integers, they need to be casted
   // to pointer type before decryption.
-  LOG(INFO) << "DecryptFromUntrustedMemory";
   void *source_base =
       reinterpret_cast<void *>(snapshot_entry.ciphertext_base());
   size_t source_size = static_cast<size_t>(snapshot_entry.ciphertext_size());
@@ -533,6 +532,7 @@ Status DecryptAndRestoreEnclaveDataBssHeap(
     const SnapshotLayout &snapshot_layout,
     const EnclaveMemoryLayout &enclave_layout,
     const CleansingVector<uint8_t> &snapshot_key) {
+  LOG(INFO) << "DecryptAndRestoreEnclaveDATA_BSS_HEAP";
   // Create a cryptor based on the AES256-GCM-SIV snapshot key to decrypt the
   // snapshot and restore the enclave.
   std::unique_ptr<AeadCryptor> cryptor;
@@ -544,18 +544,21 @@ Status DecryptAndRestoreEnclaveDataBssHeap(
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), enclave_layout.reserved_data_base,
                           enclave_layout.data_size, snapshot_layout.data()));
+  LOG(INFO) << "data decrypted";
 
   // Decrypt the bss section to reserved bss, to avoid overwriting bss used
   // by the cryptor.
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), enclave_layout.reserved_bss_base,
                           enclave_layout.bss_size, snapshot_layout.bss()));
+  LOG(INFO) << "bss decrypted";
 
   // Decrypt and restore the heap. It is safe to overwrite the heap here because
   // the heap used by the cryptor is allocated on the switched heap.
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), enclave_layout.heap_base,
                           enclave_layout.heap_size, snapshot_layout.heap()));
+  LOG(INFO) << "heap decrypted";
 
   void *switched_heap_next = GetSwitchedHeapNext();
   size_t switched_heap_remaining = GetSwitchedHeapRemaining();
@@ -579,6 +582,7 @@ Status DecryptAndRestoreEnclaveDataBssHeap(
 Status DecryptAndRestoreThreadStack(
     const SnapshotLayout &snapshot_layout,
     const CleansingVector<uint8_t> &snapshot_key) {
+  LOG(INFO) << "DecryptAndRestoreTHREAD_STACK";
   std::unique_ptr<AeadCryptor> cryptor;
   ASYLO_ASSIGN_OR_RETURN(cryptor,
                          AeadCryptor::CreateAesGcmSivCryptor(snapshot_key));
@@ -694,6 +698,7 @@ Status RestoreForFork(const char *input, size_t input_len) {
   // point because they were blocked when the snapshot is taken, and inherited
   // during restoring.
   enc_unblock_ecalls();
+  LOG(INFO) << "all restored from snapshot";
 
   return Status::OkStatus();
 }

@@ -1219,8 +1219,8 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   ImportSnapshotFromFile(fp, snapshot_layout.data());
   ImportSnapshotFromFile(fp, snapshot_layout.bss());
   ImportSnapshotFromFile(fp, snapshot_layout.heap());
-  ImportSnapshotFromFile(fp, snapshot_layout.thread());
-  ImportSnapshotFromFile(fp, snapshot_layout.stack());
+  //ImportSnapshotFromFile(fp, snapshot_layout.thread());
+  //ImportSnapshotFromFile(fp, snapshot_layout.stack());
 	fclose(fp);
 
     //Break down the snapshot_layout to check
