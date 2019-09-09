@@ -43,6 +43,8 @@
 #include <unistd.h>
 #include <utime.h>
 
+#include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <cerrno>
 #include <csignal>
@@ -984,23 +986,30 @@ uint32_t ocall_enc_untrusted_sleep(uint32_t seconds) { return sleep(seconds); }
 void ocall_enc_untrusted__exit(int rc) { _exit(rc); }
 
 int ImportSnapshotFromFile(FILE *fp,
-  const google::protobuf::RepeatedPtrField<asylo::SnapshotLayoutEntry> &snap_entry)
+  const google::protobuf::RepeatedPtrField<asylo::SnapshotLayoutEntry> &snap_entry,
+  const google::protobuf::RepeatedPtrField<asylo::SnapshotLayoutEntry> &snap_target)
 {
-  LOG(INFO) << "ImportSnapshotFromFile";
+  LOG(INFO) << "ImportSnapshotFromFile, #ofEntry: " << snap_entry.size();
   int ret = 0;
-  for (int i = 0 ; i < snap_entry.size() ; ++i) {
-    asylo::SnapshotLayoutEntry e = snap_entry[i];
-	LOG(INFO) << "for entry( " << i << ")";
+  //for (int i = 0 ; i < snap_entry.size() ; i++) {
+  for (int i = 0 ; i < 1 ; i++) {
+    asylo::SnapshotLayoutEntry e =
+		(asylo::SnapshotLayoutEntry)snap_target[i];
     void *nb = reinterpret_cast<void *>(e.nonce_base());
     size_t nsz = reinterpret_cast<size_t>(e.nonce_size());
     void *base = reinterpret_cast<void *>(e.ciphertext_base());
     size_t sz= reinterpret_cast<size_t>(e.ciphertext_size());
     LOG(INFO) << "data[" << i << "]: \nbase: " <<std::hex << base
 			  << " sz: 0x" << std::hex << sz;
-    ret += fread(nb, nsz, 1, fp);
+	char *nbuf = (char *)malloc(nsz);
+    ret += fread(nbuf, 1, nsz, fp);
+	LOG(INFO) << "fread 0x" << std::hex<< ret << " bytes for nonce";
 	char *buf = (char *)malloc(sz);
-    ret += fread(buf, sz, 1, fp);
+    ret += fread(buf, 1, sz, fp);
+	LOG(INFO) << "fread 0x" << std::hex<< ret << " bytes for ciphertext";
+    LOG(INFO) << "moving data from " << (void *)buf << " to " << base;
     memcpy(base, buf, sz);
+    memcpy(nb, nbuf, nsz);
   }
   return ret;
 }
@@ -1017,8 +1026,8 @@ int ExportSnapshotToFile(FILE *fp,
     size_t sz= reinterpret_cast<size_t>(e.ciphertext_size());
     LOG(INFO) << "data[" << i << "]: \nbase: " <<std::hex << base
 			  << " sz: 0x" << std::hex << sz;
-    ret += fwrite(nb, nsz, 1, fp);
-    ret += fwrite(base, sz, 1, fp);
+    ret += fwrite(nb, 1, nsz, fp);
+    ret += fwrite(base, 1, sz, fp);
   }
   return ret;
 }
@@ -1060,14 +1069,25 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
   }
 
   //save snapshot layout
+/*
   LOG(INFO) << "This is snapshot1 : " << &snapshot_layout;
+  std::string snapshot_layout_string;
+  snapshot_layout.SerializeToString(&snapshot_layout_string);
+  LOG(INFO) << snapshot_layout_string;
+
   FILE * fp = fopen("/tmp/snapshot_layout", "wb");
-  fwrite(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
+  //fwrite(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
+  fwrite(snapshot_layout_string.data(), snapshot_layout_string.size(), 1, fp);
   fclose(fp);
+*/
+
+  std::fstream fout("/tmp/snapshot_layout", std::ios::out | std::ios::binary);
+  snapshot_layout.SerializeToOstream(&fout);
 
   //save snapshot image
   LOG(INFO) << "This is snapshot img : ";
-  fp = fopen("/tmp/snapshot", "wb");
+  //fp = fopen("/tmp/snapshot", "wb");
+  FILE *fp = fopen("/tmp/snapshot", "wb");
 	ExportSnapshotToFile(fp, snapshot_layout.data());
 	ExportSnapshotToFile(fp, snapshot_layout.bss());
 	ExportSnapshotToFile(fp, snapshot_layout.heap());
@@ -1208,19 +1228,30 @@ pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
       return -1;
     }
 	//Read the snapshot_layout file
+/*
+	char buf[1024];
+	int rc;
+	std::string snapshot_layout_string;
 	FILE * fp = fopen("/tmp/snapshot_layout2", "rb");
-	fread(&snapshot_layout2, sizeof(asylo::SnapshotLayout), 1, fp);
+	//fread(&snapshot_layout2, sizeof(asylo::SnapshotLayout), 1, fp);
+	fread(buf, sizeof(buf), 1, fp);
+    snapshot_layout2.ParseFromArray(buf, rc);
 	fclose(fp);
-  LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
+    LOG(INFO) << "This is snapshot2 : " << &snapshot_layout2;
+	snapshot_layout2.SerializeToString(&snapshot_layout_string);
+	LOG(INFO) << snapshot_layout_string;
+*/
+	std::fstream fin("/tmp/snapshot_layout2", std::ios::in | std::ios::binary);
+	snapshot_layout2.ParseFromIstream(&fin);
 
     // restore snapshot from snapshot image according to the snapshot layout
 	LOG(INFO) << "This is snapshot img : ";
 	fp = fopen("/tmp/snapshot2", "rb");
-  ImportSnapshotFromFile(fp, snapshot_layout.data());
-  ImportSnapshotFromFile(fp, snapshot_layout.bss());
-  ImportSnapshotFromFile(fp, snapshot_layout.heap());
-  //ImportSnapshotFromFile(fp, snapshot_layout.thread());
-  //ImportSnapshotFromFile(fp, snapshot_layout.stack());
+  ImportSnapshotFromFile(fp, snapshot_layout2.data(), snapshot_layout.data());
+  ImportSnapshotFromFile(fp, snapshot_layout2.bss(), snapshot_layout.bss());
+  ImportSnapshotFromFile(fp, snapshot_layout2.heap(), snapshot_layout.heap());
+  ImportSnapshotFromFile(fp, snapshot_layout2.thread(), snapshot_layout.thread());
+  ImportSnapshotFromFile(fp, snapshot_layout2.stack(), snapshot_layout.stack());
 	fclose(fp);
 
     //Break down the snapshot_layout to check
