@@ -55,7 +55,12 @@ void signal_handler(int signo)
 
 		asylo::SnapshotLayout snapshot_layout;
 		// Take snapshot
-		client->EnterAndTakeSnapshot(&snapshot_layout);
+		status = client->EnterAndTakeSnapshot(&snapshot_layout);
+		if (!status.ok()) {
+			LOG(ERROR) << "EnterAndTakeSnapshot failed: " <<status;
+			errno = ENOMEM;
+			return ;
+		}
 
 		// Destroy Enclave
 		asylo::EnclaveFinal final_input;
