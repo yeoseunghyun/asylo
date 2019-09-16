@@ -38,7 +38,8 @@ asylo::EnclaveConfig GetApplicationConfig();
 
 asylo::Status status; 
 asylo::EnclaveManager *manager;
-asylo::EnclaveClient *client;
+//asylo::EnclaveClient *client;
+asylo::SgxClient *client;
 
 struct sigaction old_sa;
 struct sigaction new_sa;
@@ -49,13 +50,22 @@ char **g_argv;
 void signal_handler(int signo)
 {
 	LOG(INFO)<<"SIGUSR1 Received : Restart main\n";
-/*	asylo::EnclaveFinal final_input;
-	status = manager->DestroyEnclave(client, final_input);
-	if (!status.ok()) {
-	  LOG(QFATAL) << "Destroy " << FLAGS_enclave_path << " failed: " << status;
+
+	if (client != NULL) {
+
+		asylo::SnapshotLayout snapshot_layout;
+		// Take snapshot
+		client->EnterAndTakeSnapshot(&snapshot_layout);
+
+		// Destroy Enclave
+		asylo::EnclaveFinal final_input;
+		status = manager->DestroyEnclave(client, final_input);
+		if (!status.ok()) {
+		  LOG(QFATAL) << "Destroy " << FLAGS_enclave_path << " failed: " << status;
+		}
 	}
-	LOG_IF(INFO, status.ok()) << "FIN";*/
-	hello(g_argc, g_argv);
+	LOG_IF(INFO, status.ok()) << "FIN";
+
 	exit(0);
 }
 
@@ -104,8 +114,8 @@ int hello(int argc, char *argv[]) {
   // Part 2: Secure execution
 
   //asylo::EnclaveClient *client = manager->GetClient("hello_enclave");
-  //asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
-  client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
+  asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
+  //client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
 
   for (const auto &name : names) {
     asylo::EnclaveInput input;
