@@ -307,6 +307,9 @@ void SetForkRequested() { fork_requested = true; }
 // thread by copying to untrusted memory.
 Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   // A snapshot is not allowed unless fork is requested from inside an enclave.
+	// dirty reset
+	asylo::SaveThreadLayoutForSnapshot();
+	SetForkRequested();
 
   if (!ClearForkRequested()) {
     return Status(error::GoogleError::PERMISSION_DENIED,

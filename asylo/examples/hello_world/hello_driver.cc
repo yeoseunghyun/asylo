@@ -20,6 +20,9 @@
 #include <string>
 #include <vector>
 #include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "absl/strings/str_split.h"
 #include "asylo/client.h"
@@ -40,6 +43,7 @@ asylo::Status status;
 asylo::EnclaveManager *manager;
 //asylo::EnclaveClient *client;
 asylo::SgxClient *client;
+asylo::EnclaveConfig config;
 
 struct sigaction old_sa;
 struct sigaction new_sa;
@@ -47,9 +51,18 @@ int hello(int, char** );
 int g_argc;
 char **g_argv;
 
-void signal_handler(int signo)
+void restore_handler(int signo) {
+	LOG(INFO)<<"SIGUSR2 Received : LoadEnclave & RestoreFromSnapshot\n";
+
+	// Destroy Enclave
+	hello(g_argc, g_argv);
+
+	exit(0);
+}
+
+void snapshot_handler(int signo)
 {
-	LOG(INFO)<<"SIGUSR1 Received : Restart main\n";
+	LOG(INFO)<<"SIGUSR1 Received : TakeSnapshot\n";
 
 	if (client != NULL) {
 
@@ -61,24 +74,35 @@ void signal_handler(int signo)
 			errno = ENOMEM;
 			return ;
 		}
-
-		// Destroy Enclave
-		asylo::EnclaveFinal final_input;
-		status = manager->DestroyEnclave(client, final_input);
-		if (!status.ok()) {
-		  LOG(QFATAL) << "Destroy " << FLAGS_enclave_path << " failed: " << status;
-		}
 	}
-	LOG_IF(INFO, status.ok()) << "FIN";
+	LOG_IF(INFO, status.ok()) << "FIN & restart";
 
-	exit(0);
+	pid_t pid;
+
+	pid = fork();
+	if (pid < 0) {
+		LOG(QFATAL) << "fork failed";
+	}
+	if (pid == 0) {
+		// child
+		LOG(INFO) << "child";
+		memset(&new_sa, 0, sizeof(new_sa));
+		new_sa.sa_handler=restore_handler;
+		sigaction(SIGUSR2,&new_sa,&old_sa);
+		while (1); // child, wait here
+	} else {
+		//parent
+		int wstatus = 0;
+
+		waitpid(pid, &wstatus, NULL);
+	}	// end parent & go back to the main
 }
 
 int main(int argc, char*argv[]){
 	g_argc = argc;
 	g_argv = argv;
 	memset(&new_sa, 0, sizeof(new_sa));
-	new_sa.sa_handler=&signal_handler;
+	new_sa.sa_handler=snapshot_handler;
 	sigaction(SIGUSR1,&new_sa,&old_sa);	
 	hello(argc, argv);
 } 
@@ -100,50 +124,43 @@ int hello(int argc, char *argv[]) {
   if (!manager_result.ok()) {
     LOG(QFATAL) << "EnclaveManager unavailable: " << manager_result.status();
   }
-  asylo::EnclaveConfig config = GetApplicationConfig();
+	// config, manager, client global
+  config = GetApplicationConfig();
   config.set_enable_fork(true);
 
-  //asylo::EnclaveManager *manager = manager_result.ValueOrDie();
   manager = manager_result.ValueOrDie();
   std::cout << "Loading " << FLAGS_enclave_path << std::endl;
   asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
-  void *addr = (void *)0x7fdbcc000000;
-  size_t sz = 33554432;
-  LOG(INFO) << "base: " << addr << " sz: " << sz;
-  //asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config, addr, sz);
-  status = manager->LoadEnclave("hello_enclave", loader, config, addr, sz);
+  status = manager->LoadEnclave("hello_enclave", loader, config);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
   }
 
   // Part 2: Secure execution
 
-  //asylo::EnclaveClient *client = manager->GetClient("hello_enclave");
   client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
-  //client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
 
   for (const auto &name : names) {
     asylo::EnclaveInput input;
     input.MutableExtension(hello_world::enclave_input_hello)
         ->set_to_greet(name);
 
-    //asylo::EnclaveOutput output;
-    asylo::EnclaveOutput* output = new asylo::EnclaveOutput();
-    status = client->EnterAndRun(input, output);
+    asylo::EnclaveOutput output;
+    status = client->EnterAndRun(input, &output);
 
     if (!status.ok()) {
       LOG(QFATAL) << "EnterAndRun failed: " << status;
     }
-    if (!output->HasExtension(hello_world::enclave_output_hello)) {
+    if (!output.HasExtension(hello_world::enclave_output_hello)) {
     	std::cout << " output " <<
-		  output->GetExtension(hello_world::enclave_output_hello).greeting_message()
+		  output.GetExtension(hello_world::enclave_output_hello).greeting_message()
 		  << "\n input " <<
 		  input.GetExtension(hello_world::enclave_input_hello).to_greet()
 		  << std::endl;
       LOG(QFATAL) << "Enclave did not assign an ID for " << name;
     }
 	std::cout << "Message from enclave: "
-              << output->GetExtension(hello_world::enclave_output_hello)
+              << output.GetExtension(hello_world::enclave_output_hello)
                      .greeting_message()
               << std::endl;
   }
