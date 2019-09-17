@@ -119,7 +119,7 @@ int hello(int argc, char *argv[]) {
   // Part 2: Secure execution
 
   //asylo::EnclaveClient *client = manager->GetClient("hello_enclave");
-  asylo::SgxClient *client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
+  client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
   //client = reinterpret_cast<asylo::SgxClient *>(manager->GetClient("hello_enclave"));
 
   for (const auto &name : names) {
