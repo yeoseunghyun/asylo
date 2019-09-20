@@ -390,7 +390,7 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   }
 
   int fd = enc_untrusted_open("/tmp/snap_key", O_WRONLY);
-  enc_untrusted_write(fd, &snapshot_key, sizeof(snapshot_key));
+  enc_untrusted_write(fd, snapshot_key.data(), snapshot_key.size());
   enc_untrusted_close(fd);
 
 
@@ -640,16 +640,21 @@ Status RestoreForFork(const char *input, size_t input_len) {
     }
 
     // Get the snapshot key received from the parent.
-    CleansingVector<uint8_t> snapshot_key;
+    CleansingVector<uint8_t> snapshot_key(kSnapshotKeySize);
 	int fd;
 	fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
-	size_t rc = enc_untrusted_read(fd, &snapshot_key, sizeof(snapshot_key));
+	size_t rc = enc_untrusted_read(fd, snapshot_key.data(), snapshot_key.size());
+	if (rc < 0) {
+		Status status(static_cast<error::PosixError>(errno), "Read failed");
+      CopyNonOkStatus(status, &error_code, error_message,
+                      ABSL_ARRAYSIZE(error_message));
+      break;
+	}
 	enc_untrusted_close(fd);
-	SetSnapshotKey(&snapshot_key);
 
-    if (!GetSnapshotKey(&snapshot_key)) {
+    if (!SetSnapshotKey(snapshot_key)) {
       Status status(error::GoogleError::INTERNAL,
-                    "Failed to get the snapshot key");
+                    "Failed to set the snapshot key");
       CopyNonOkStatus(status, &error_code, error_message,
                       ABSL_ARRAYSIZE(error_message));
       break;
