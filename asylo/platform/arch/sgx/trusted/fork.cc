@@ -645,6 +645,7 @@ Status RestoreForFork(const char *input, size_t input_len) {
 	fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
 	size_t rc = enc_untrusted_read(fd, &snapshot_key, sizeof(snapshot_key));
 	enc_untrusted_close(fd);
+	SetSnapshotKey(&snapshot_key);
 
     if (!GetSnapshotKey(&snapshot_key)) {
       Status status(error::GoogleError::INTERNAL,
