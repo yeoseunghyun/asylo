@@ -44,20 +44,32 @@ asylo::EnclaveManager *manager;
 //asylo::EnclaveClient *client;
 asylo::SgxClient *client;
 asylo::EnclaveConfig config;
+int flag = 0;
 
 struct sigaction old_sa;
 struct sigaction new_sa;
 int hello(int, char** );
+int load_enclave(int, char** );
+void destroy();
 int g_argc;
 char **g_argv;
+asylo::SnapshotLayout snapshot_layout;
 
 void restore_handler(int signo) {
 	LOG(INFO)<<"SIGUSR2 Received : LoadEnclave & RestoreFromSnapshot\n";
 
-	// Destroy Enclave
-	hello(g_argc, g_argv);
+	// load Enclave
+	load_enclave(g_argc, g_argv);
+	flag = 1;
 
-	exit(0);
+	//restore from snapshot
+	// we need to have snapshotkey
+	// Transfer snapshot key, which is difficult
+	status = client->EnterAndRestore(snapshot_layout);
+	if (!status.ok()) {
+		LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
+	}
+
 }
 
 void snapshot_handler(int signo)
@@ -66,7 +78,6 @@ void snapshot_handler(int signo)
 
 	if (client != NULL) {
 
-		asylo::SnapshotLayout snapshot_layout;
 		// Take snapshot
 		status = client->EnterAndTakeSnapshot(&snapshot_layout);
 		if (!status.ok()) {
@@ -89,7 +100,10 @@ void snapshot_handler(int signo)
 		memset(&new_sa, 0, sizeof(new_sa));
 		new_sa.sa_handler=restore_handler;
 		sigaction(SIGUSR2,&new_sa,&old_sa);
-		while (1); // child, wait here
+		while (!flag) { // child, wait here
+			sleep(1);
+		}
+		destroy();
 	} else {
 		//parent
 		int wstatus = 0;
@@ -193,3 +207,46 @@ int hello(int argc, char *argv[]) {
   _exit(0);
   return 0;
 }
+
+int load_enclave(int argc, char *argv[]) {
+  // Part 0: Setup
+  ::google::ParseCommandLineFlags(&argc, &argv,
+                                  /*remove_flags=*/true);
+
+  if (FLAGS_names.empty()) {
+    LOG(QFATAL) << "Must supply a non-empty list of names with --names";
+  }
+
+  std::vector<std::string> names = absl::StrSplit(FLAGS_names, ',');
+
+  // Part 1: Initialization
+  asylo::EnclaveManager::Configure(asylo::EnclaveManagerOptions());
+  auto manager_result = asylo::EnclaveManager::Instance();
+  if (!manager_result.ok()) {
+    LOG(QFATAL) << "EnclaveManager unavailable: " << manager_result.status();
+  }
+	// config, manager, client global
+  config = GetApplicationConfig();
+  config.set_enable_fork(true);
+
+  manager = manager_result.ValueOrDie();
+  std::cout << "Loading " << FLAGS_enclave_path << std::endl;
+  asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
+  status = manager->LoadEnclave("hello_enclave", loader, config);
+  if (!status.ok()) {
+    LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
+  }
+}
+
+void destroy() {
+  asylo::EnclaveFinal final_input;
+  status = manager->DestroyEnclave(client, final_input);
+  if (!status.ok()) {
+    LOG(QFATAL) << "Destroy " << FLAGS_enclave_path << " failed: " << status;
+  }
+  LOG_IF(INFO, status.ok()) << "FIN";
+
+  _exit(0);
+  return ; // never reach here
+}
+
