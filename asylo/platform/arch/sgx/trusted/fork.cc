@@ -389,6 +389,11 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
                   "Failed to save snapshot key inside enclave");
   }
 
+  int fd = enc_untrusted_open("/tmp/snap_key", O_WRONLY);
+  enc_untrusted_write(fd, &snapshot_key, sizeof(snapshot_key));
+  enc_untrusted_close(fd);
+
+
   // Copy the data and bss section to reserved sections to avoid modifying
   // the data/bss sections while encrypting and copying them to the
   // snapshot.
@@ -636,6 +641,10 @@ Status RestoreForFork(const char *input, size_t input_len) {
 
     // Get the snapshot key received from the parent.
     CleansingVector<uint8_t> snapshot_key;
+	int fd;
+	fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
+	size_t rc = enc_untrusted_read(fd, &snapshot_key, sizeof(snapshot_key));
+	enc_untrusted_close(fd);
 
     if (!GetSnapshotKey(&snapshot_key)) {
       Status status(error::GoogleError::INTERNAL,
@@ -823,7 +832,7 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
   enc_untrusted_write(fd,
 			encrypted_snapshot_key_string.data(),
 			encrypted_snapshot_key_string.size());
-  close(fd);
+  enc_untrusted_close(fd);
 
   // Sends the serialized encrypted snapshot key to the child.
   if (enc_untrusted_write(socket, encrypted_snapshot_key_string.data(),
@@ -849,7 +858,7 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
   fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
   rc = enc_untrusted_read(fd, buf, sizeof(buf));
   ptr = (long long *)buf;
-  close(fd);
+  enc_untrusted_close(fd);
 
   EncryptedSnapshotKey encrypted_snapshot_key;
   if (!encrypted_snapshot_key.ParseFromArray(buf, rc)) {
