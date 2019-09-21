@@ -389,7 +389,10 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
                   "Failed to save snapshot key inside enclave");
   }
 
-  int fd = enc_untrusted_open("/tmp/snap_key", O_WRONLY);
+  int flag = O_CREAT | O_RDWR;
+  int mode = S_IRWXU;
+
+  int fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
   enc_untrusted_write(fd, snapshot_key.data(), snapshot_key.size());
   enc_untrusted_close(fd);
 
@@ -642,7 +645,10 @@ Status RestoreForFork(const char *input, size_t input_len) {
     // Get the snapshot key received from the parent.
     CleansingVector<uint8_t> snapshot_key(kSnapshotKeySize);
 	int fd;
-	fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
+	int flag = O_RDONLY;
+	int mode = S_IRWXU;
+
+	fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
 	size_t rc = enc_untrusted_read(fd, snapshot_key.data(), snapshot_key.size());
 	if (rc < 0) {
 		Status status(static_cast<error::PosixError>(errno), "Read failed");
@@ -834,7 +840,9 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
                   "Failed to serialize EncryptedSnapshotKey");
   }
 
-  int fd = enc_untrusted_open("/tmp/snap_key", O_WRONLY);
+  int flag = O_CREAT | O_RDWR;
+  int mode = S_IRWXU;
+  int fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
   enc_untrusted_write(fd,
 			encrypted_snapshot_key_string.data(),
 			encrypted_snapshot_key_string.size());
@@ -861,7 +869,10 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
 
   // restore key from saved file
   int fd;
-  fd = enc_untrusted_open("/tmp/snap_key", O_RDONLY);
+  int flag = O_RDONLY;
+  int mode = S_IRWXU;
+
+  fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
   rc = enc_untrusted_read(fd, buf, sizeof(buf));
   ptr = (long long *)buf;
   enc_untrusted_close(fd);
