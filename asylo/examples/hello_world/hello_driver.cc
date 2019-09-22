@@ -49,7 +49,7 @@ int flag = 0;
 struct sigaction old_sa;
 struct sigaction new_sa;
 int hello(int, char** );
-int load_enclave(int, char** );
+int load_enclave(int, char** , void *, size_t);
 void destroy();
 int g_argc;
 char **g_argv;
@@ -58,8 +58,6 @@ asylo::SnapshotLayout snapshot_layout;
 void restore_handler(int signo) {
 	LOG(INFO)<<"SIGUSR2 Received : LoadEnclave & RestoreFromSnapshot\n";
 
-	// load Enclave
-	load_enclave(g_argc, g_argv);
 	flag = 1;
 
 	//restore from snapshot
@@ -69,12 +67,15 @@ void restore_handler(int signo) {
 	if (!status.ok()) {
 		LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
 	}
+	LOG(INFO)<<"(" <<getpid() << ") Enclave resume";
 
 }
 
 void snapshot_handler(int signo)
 {
-	LOG(INFO)<<"SIGUSR1 Received : TakeSnapshot\n";
+	void *base = 0;
+	size_t length = 0;
+	LOG(INFO)<< "(" <<getpid() << " ) SIGUSR1 Received : TakeSnapshot\n";
 
 	if (client != NULL) {
 
@@ -85,6 +86,8 @@ void snapshot_handler(int signo)
 			errno = ENOMEM;
 			return ;
 		}
+		base = client->base_address();
+		length = client->size();
 	}
 	LOG_IF(INFO, status.ok()) << "FIN & restart";
 
@@ -97,18 +100,33 @@ void snapshot_handler(int signo)
 	if (pid == 0) {
 		// child
 		LOG(INFO) << "child";
+		sigaction(SIGUSR1,&old_sa,&new_sa);
 		memset(&new_sa, 0, sizeof(new_sa));
 		new_sa.sa_handler=restore_handler;
 		sigaction(SIGUSR2,&new_sa,&old_sa);
+
+		// load Enclave
+		load_enclave(g_argc, g_argv, base, length);
+		if (!status.ok()) {
+			LOG(ERROR) << "load_enclave failed: " <<status;
+			errno = ENOMEM;
+			return ;
+		}
+
+		LOG(INFO)<<"(" <<getpid() << ") Enclave loaded";
+
 		while (!flag) { // child, wait here
 			sleep(1);
 		}
+		sigaction(SIGUSR2,&old_sa,&new_sa);
 		destroy();
 	} else {
 		//parent
 		int wstatus = 0;
 
 		waitpid(pid, &wstatus, NULL);
+		LOG(INFO) << "child status: " << wstatus;
+		sigaction(SIGUSR1,&old_sa,&new_sa);
 	}	// end parent & go back to the main
 }
 
@@ -117,7 +135,7 @@ int main(int argc, char*argv[]){
 	g_argv = argv;
 	memset(&new_sa, 0, sizeof(new_sa));
 	new_sa.sa_handler=snapshot_handler;
-	sigaction(SIGUSR1,&new_sa,&old_sa);	
+	sigaction(SIGUSR1,&new_sa,&old_sa);
 	hello(argc, argv);
 } 
 
@@ -208,7 +226,7 @@ int hello(int argc, char *argv[]) {
   return 0;
 }
 
-int load_enclave(int argc, char *argv[]) {
+int load_enclave(int argc, char *argv[], void *base, size_t length) {
   // Part 0: Setup
   ::google::ParseCommandLineFlags(&argc, &argv,
                                   /*remove_flags=*/true);
@@ -230,9 +248,9 @@ int load_enclave(int argc, char *argv[]) {
   config.set_enable_fork(true);
 
   manager = manager_result.ValueOrDie();
-  std::cout << "Loading " << FLAGS_enclave_path << std::endl;
+  LOG(INFO) << "Loading " << FLAGS_enclave_path ;
   asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
-  status = manager->LoadEnclave("hello_enclave", loader, config);
+  status = manager->LoadEnclave("hello_enclave", loader, config, base, length);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
   }

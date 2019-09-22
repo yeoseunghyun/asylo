@@ -585,6 +585,7 @@ Status DecryptAndRestoreThreadStack(
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), thread_layout.thread_base,
                           thread_layout.thread_size, snapshot_layout.thread()));
+	LOG(INFO) << "    DecryptFromSnapshot(thread_base)";
 
   // are decrypting it in a different tcs from the thread that requests fork().
   size_t stack_size = reinterpret_cast<size_t>(thread_layout.stack_base) -
@@ -592,6 +593,7 @@ Status DecryptAndRestoreThreadStack(
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), thread_layout.stack_limit, stack_size,
                           snapshot_layout.stack()));
+	LOG(INFO) << "    DecryptFromSnapshot(stack_limit)";
 
   return Status::OkStatus();
 }
@@ -675,6 +677,7 @@ Status RestoreForFork(const char *input, size_t input_len) {
                       ABSL_ARRAYSIZE(error_message));
       break;
     }
+    LOG(INFO) << "  DecryptAndRestoreEnclaveDataBssHeap: " << status;
 
     // Now that data is restored, the information of the thread and stack
     // address of the calling thread can be retrieved. Decrypts the thread
@@ -685,6 +688,7 @@ Status RestoreForFork(const char *input, size_t input_len) {
                       ABSL_ARRAYSIZE(error_message));
       break;
     }
+    LOG(INFO) << "  DecryptAndRestoreThreadStack: " << status;
   } while (0);
 
   // Switch back to real heap.
