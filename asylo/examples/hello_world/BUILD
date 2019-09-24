@@ -19,12 +19,19 @@ licenses(["notice"])  # Apache v2.0
 # Hello World project for Asylo.
 
 load(
-    "//asylo/bazel:asylo.bzl",
+    "//asylo/bazel:asylo.bzl", "cc_enclave_binary",
     "enclave_loader",
     "sim_enclave",
 )
 load("//asylo/bazel:proto.bzl", "asylo_proto_library")
 load("//asylo/bazel:copts.bzl", "ASYLO_DEFAULT_COPTS")
+load("@linux_sgx//:sgx_sdk.bzl", "sgx_enclave_configuration")
+
+sgx_enclave_configuration(
+    name = "hello_enclave_configuration",
+    stack_max_size = "0x400000",
+    heap_max_size = "0x1000000",
+)
 
 package(
     default_visibility = ["//visibility:public"],
@@ -54,6 +61,12 @@ sim_enclave(
         "//asylo/util:status",
         "@com_google_absl//absl/strings",
     ],
+)
+
+cc_enclave_binary(
+    name = "hello_cc",
+    enclave_build_config = "hello_enclave_configuration",
+    deps = ["hello_enclave.so"],
 )
 
 enclave_loader(

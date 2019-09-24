@@ -45,6 +45,10 @@ asylo::EnclaveManager *manager;
 asylo::SgxClient *client;
 asylo::EnclaveConfig config;
 int flag = 0;
+std::vector<std::string> names;
+
+void *base = 0;
+size_t length = 0;
 
 struct sigaction old_sa;
 struct sigaction new_sa;
@@ -56,26 +60,24 @@ char **g_argv;
 asylo::SnapshotLayout snapshot_layout;
 
 void restore_handler(int signo) {
-	LOG(INFO)<<"SIGUSR2 Received : LoadEnclave & RestoreFromSnapshot\n";
-
-	flag = 1;
-
+	LOG(INFO)<<"SIGUSR1 Received : LoadEnclave & RestoreFromSnapshot\n";
 	//restore from snapshot
 	// we need to have snapshotkey
 	// Transfer snapshot key, which is difficult
+	/*
+	*/
+	LOG(INFO)<<"(" <<getpid() << ") Enclave resume";
 	status = client->EnterAndRestore(snapshot_layout);
 	if (!status.ok()) {
 		LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
 	}
-	LOG(INFO)<<"(" <<getpid() << ") Enclave resume";
 
+	flag = 1;
 }
 
 void snapshot_handler(int signo)
 {
-	void *base = 0;
-	size_t length = 0;
-	LOG(INFO)<< "(" <<getpid() << " ) SIGUSR1 Received : TakeSnapshot\n";
+	LOG(INFO)<< "(" <<getpid() << " ) SIGUSR2 Received : TakeSnapshot\n";
 
 	if (client != NULL) {
 
@@ -88,6 +90,7 @@ void snapshot_handler(int signo)
 		}
 		base = client->base_address();
 		length = client->size();
+		LOG(INFO) << "Enclave Loaded at " << base << " sz: " << length;
 	}
 	LOG_IF(INFO, status.ok()) << "FIN & restart";
 
@@ -100,10 +103,10 @@ void snapshot_handler(int signo)
 	if (pid == 0) {
 		// child
 		LOG(INFO) << "child";
-		sigaction(SIGUSR1,&old_sa,&new_sa);
+		sigaction(SIGUSR2,&old_sa,&new_sa);
 		memset(&new_sa, 0, sizeof(new_sa));
 		new_sa.sa_handler=restore_handler;
-		sigaction(SIGUSR2,&new_sa,&old_sa);
+		sigaction(SIGUSR1,&new_sa,&old_sa);
 
 		// load Enclave
 		load_enclave(g_argc, g_argv, base, length);
@@ -118,15 +121,16 @@ void snapshot_handler(int signo)
 		while (!flag) { // child, wait here
 			sleep(1);
 		}
-		sigaction(SIGUSR2,&old_sa,&new_sa);
-		destroy();
+		sigaction(SIGUSR1,&old_sa,&new_sa);
+		//destroy();
+
 	} else {
 		//parent
 		int wstatus = 0;
 
 		waitpid(pid, &wstatus, NULL);
 		LOG(INFO) << "child status: " << wstatus;
-		sigaction(SIGUSR1,&old_sa,&new_sa);
+		sigaction(SIGUSR2,&old_sa,&new_sa);
 	}	// end parent & go back to the main
 }
 
@@ -135,7 +139,7 @@ int main(int argc, char*argv[]){
 	g_argv = argv;
 	memset(&new_sa, 0, sizeof(new_sa));
 	new_sa.sa_handler=snapshot_handler;
-	sigaction(SIGUSR1,&new_sa,&old_sa);
+	sigaction(SIGUSR2,&new_sa,&old_sa);
 	hello(argc, argv);
 } 
 
@@ -148,7 +152,7 @@ int hello(int argc, char *argv[]) {
     LOG(QFATAL) << "Must supply a non-empty list of names with --names";
   }
 
-  std::vector<std::string> names = absl::StrSplit(FLAGS_names, ',');
+  names = absl::StrSplit(FLAGS_names, ',');
 
   // Part 1: Initialization
   asylo::EnclaveManager::Configure(asylo::EnclaveManagerOptions());
@@ -163,7 +167,10 @@ int hello(int argc, char *argv[]) {
   manager = manager_result.ValueOrDie();
   std::cout << "Loading " << FLAGS_enclave_path << std::endl;
   asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
-  status = manager->LoadEnclave("hello_enclave", loader, config);
+  void *base = (void *)0x7f850a000000;
+  size_t length = 33554432;
+  status = manager->LoadEnclave("hello_enclave", loader, config, base, length);
+  //status = manager->LoadEnclave("hello_enclave", loader, config);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
   }

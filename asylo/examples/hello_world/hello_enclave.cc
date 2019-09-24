@@ -35,6 +35,8 @@ pid_t enclave_fork();
 
 using namespace asylo;
 
+//global var j!
+int j;
 
 class HelloApplication : public asylo::TrustedApplication {
 
@@ -52,16 +54,17 @@ class HelloApplication : public asylo::TrustedApplication {
 			std::string visitor =
 				input.GetExtension(hello_world::enclave_input_hello).to_greet();
 			LOG(INFO) << "Hello " << visitor;
-			for(unsigned int j=0; j<0x4 ;j++)
-			for(unsigned int i=0; i<0xffffffff;i++);
+			for(; j<0x4f ;j++) {
+				for(unsigned int i=0; i<0xfffffff;i++) ;
+				LOG(INFO) << "(" << getpid() << ") Incr visitor cnt. j: " << j;
+			}
 			if (output) {
-				LOG(INFO) << "Incrementing visitor count...";
 				output->MutableExtension(hello_world::enclave_output_hello)
 					->set_greeting_message(
 							absl::StrCat("Hello ", visitor, "! You are visitor #",
 								++visitor_count_, " to this enclave."));
 			}
-			return asylo::Status::OkStatus();
+		return asylo::Status::OkStatus();
 		}
 
 	private:

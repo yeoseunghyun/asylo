@@ -109,6 +109,11 @@ void SetSnapshotKeyTransferRequested() {
 // Gets the previous saved thread memory layout, including the base address and
 // size of the stack/thread info for the TCS that saved the layout.
 const struct ThreadMemoryLayout GetThreadLayoutForSnapshot() {
+/*
+	LOG (INFO) << " GetThreadLayoutForSnapshot() \n\t"
+			<< "stack base: " << forked_thread_memory_layout.stack_base << " - "
+		<< forked_thread_memory_layout.stack_limit;
+*/
   return forked_thread_memory_layout;
 }
 
@@ -299,6 +304,11 @@ void SaveThreadLayoutForSnapshot() {
   thread_memory_layout.stack_base = enclave_memory_layout.stack_base;
   thread_memory_layout.stack_limit = enclave_memory_layout.stack_limit;
   forked_thread_memory_layout = thread_memory_layout;
+/*
+  LOG(INFO) << " SaveThreadLayoutForSnapshot() \n\t"
+			<< "stack base: " << enclave_memory_layout.stack_base << " - "
+			<< enclave_memory_layout.stack_limit;
+*/
 }
 
 void SetForkRequested() { fork_requested = true; }
@@ -307,9 +317,6 @@ void SetForkRequested() { fork_requested = true; }
 // thread by copying to untrusted memory.
 Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   // A snapshot is not allowed unless fork is requested from inside an enclave.
-	// dirty reset
-	asylo::SaveThreadLayoutForSnapshot();
-	SetForkRequested();
 
   if (!ClearForkRequested()) {
     return Status(error::GoogleError::PERMISSION_DENIED,
@@ -414,6 +421,7 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
   // Switch heap allocation to a reserved memory section to avoid modifying
   // the enclave's heap while creating and encrypting a snapshot of the
   // enclave.
+  //LOG(INFO) << "TakeSnapshotForFork, heap_switch1, reserved_heap";
   heap_switch(enclave_layout.reserved_heap_base,
               enclave_layout.reserved_heap_size);
 
@@ -485,7 +493,10 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
     // Allocate and encrypt stack for the calling thread.
     size_t stack_size = reinterpret_cast<size_t>(thread_layout.stack_base) -
                         reinterpret_cast<size_t>(thread_layout.stack_limit);
-
+/*
+    LOG(INFO) << "EncryptToSnapshot(stack: " <<thread_layout.stack_base << " - "
+				<< thread_layout.stack_limit << ", sz: 0x" <<std::hex << stack_size;
+*/
     status = EncryptToSnapshot(cryptor.get(), thread_layout.stack_limit,
                                stack_size, tmp_snapshot_layout.mutable_stack());
 
@@ -497,16 +508,25 @@ Status TakeSnapshotForFork(SnapshotLayout *snapshot_layout) {
 
     // Switch back to normal heap to generate the snapshot layout to be returned
     // on real heap.
+/*
+    LOG(INFO) << "TakeSnapshotForFork, heap_switch2, nullptr";
+*/
     heap_switch(/*address=*/nullptr, /*size=*/0);
     *snapshot_layout = tmp_snapshot_layout;
 
     // Switch to the temporary heap again to free all the memory allocated on
     // switched heap.
+/*
+    LOG(INFO) << "TakeSnapshotForFork, heap_switch3, reserved_heap";
+*/
     heap_switch(enclave_layout.reserved_heap_base,
                 enclave_layout.reserved_heap_size);
   } while (0);
 
   // Switch heap back before creating the return status.
+/*
+  LOG(INFO) << "TakeSnapshotForFork, heap_switch4, nullptr";
+*/
   heap_switch(/*address=*/nullptr, /*size=*/0);
   if (error_code != error::GoogleError::OK) {
     return Status(error_code, error_message);
@@ -551,6 +571,9 @@ Status DecryptAndRestoreEnclaveDataBssHeap(
 
   void *switched_heap_next = GetSwitchedHeapNext();
   size_t switched_heap_remaining = GetSwitchedHeapRemaining();
+/*
+  LOG(INFO) << "switched_heap_remaining: 0x" << std::hex << switched_heap_remaining;
+*/
 
   // Copy the restored data and bss section to real data and bss.
   memcpy(enclave_layout.data_base, enclave_layout.reserved_data_base,
@@ -561,6 +584,9 @@ Status DecryptAndRestoreEnclaveDataBssHeap(
   // Reset the heap switch, because it has been overwritten while restoring the
   // data and bss. We should set to the memory address before overwriting the
   // data, to avoid overwriting the existing memory on the switched heap.
+/*
+  LOG(INFO) << "DecryptAndRestoreEnclaveDataBssHea, heap_switch5, switched_heap_next";
+*/
   heap_switch(switched_heap_next, switched_heap_remaining);
   return Status::OkStatus();
 }
@@ -582,19 +608,28 @@ Status DecryptAndRestoreThreadStack(
   // Decrypt and restore the thread information. Restore happens in a different
   // tcs (enclave thread) from the thread that requests fork(). Therefore it is
   // OK to overwrite the stack since we are using different stack now.
+
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), thread_layout.thread_base,
                           thread_layout.thread_size, snapshot_layout.thread()));
-	LOG(INFO) << "    DecryptFromSnapshot(thread_base)";
 
+/*
+	LOG(INFO) << "    DecryptFromSnapshot(thread_base)" << thread_layout.thread_base;
+*/
   // are decrypting it in a different tcs from the thread that requests fork().
   size_t stack_size = reinterpret_cast<size_t>(thread_layout.stack_base) -
                       reinterpret_cast<size_t>(thread_layout.stack_limit);
+/*
+	LOG(INFO) << "    DecryptFromSnapshot(stack: " <<thread_layout.stack_base << " - "
+				<< thread_layout.stack_limit << ", sz: 0x" << std::hex << stack_size;
+*//*
   ASYLO_RETURN_IF_ERROR(
       DecryptFromSnapshot(cryptor.get(), thread_layout.stack_limit, stack_size,
                           snapshot_layout.stack()));
-	LOG(INFO) << "    DecryptFromSnapshot(stack_limit)";
-
+*//*
+	LOG(INFO) << "    DecryptFromSnapshot(stack: " <<thread_layout.stack_base << " - "
+				<< thread_layout.stack_limit << ", sz: 0x" << std::hex << stack_size;
+*/
   return Status::OkStatus();
 }
 
@@ -625,6 +660,9 @@ Status RestoreForFork(const char *input, size_t input_len) {
 
   // Switch heap allocation to a reserved memory section so that we are not
   // overwriting the heap memory used by the cryptor when restoring heap.
+/*
+  LOG(INFO) << "RestoreForFork, heap_switch6, reserved_heap";
+*/
   heap_switch(enclave_layout.reserved_heap_base,
               enclave_layout.reserved_heap_size);
 
@@ -677,7 +715,9 @@ Status RestoreForFork(const char *input, size_t input_len) {
                       ABSL_ARRAYSIZE(error_message));
       break;
     }
+/*
     LOG(INFO) << "  DecryptAndRestoreEnclaveDataBssHeap: " << status;
+*/
 
     // Now that data is restored, the information of the thread and stack
     // address of the calling thread can be retrieved. Decrypts the thread
@@ -688,10 +728,12 @@ Status RestoreForFork(const char *input, size_t input_len) {
                       ABSL_ARRAYSIZE(error_message));
       break;
     }
-    LOG(INFO) << "  DecryptAndRestoreThreadStack: " << status;
   } while (0);
 
   // Switch back to real heap.
+/*
+  LOG(INFO) << "RestoreForFork, heap_switch6, nullptr";
+*/
   heap_switch(/*address=*/nullptr, /*size=*/0);
   if (error_code != error::GoogleError::OK) {
     return Status(error_code, error_message);
@@ -809,7 +851,6 @@ Status ComparePeerAndSelfIdentity(const EnclaveIdentity &peer_identity) {
 // Encrypts and transfers snapshot key to the child.
 Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
                                  int socket) {
-  long long *ptr;
   Cleanup delete_snapshot_key(DeleteSnapshotKey);
   CleansingVector<uint8_t> snapshot_key(kSnapshotKeySize);
   if (!GetSnapshotKey(&snapshot_key)) {
@@ -865,7 +906,6 @@ Status EncryptAndSendSnapshotKey(std::unique_ptr<AeadCryptor> cryptor,
 Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
   // Receives the encrypted snapshot key from the parent.
   char buf[1024];
-  long long *ptr;
   int rc = enc_untrusted_read(socket, buf, sizeof(buf));
   if (rc <= 0) {
     return Status(static_cast<error::PosixError>(errno), "Read failed");
@@ -878,7 +918,6 @@ Status ReceiveSnapshotKey(std::unique_ptr<AeadCryptor> cryptor, int socket) {
 
   fd = enc_untrusted_open("/tmp/snap_key", flag, mode);
   rc = enc_untrusted_read(fd, buf, sizeof(buf));
-  ptr = (long long *)buf;
   enc_untrusted_close(fd);
 
   EncryptedSnapshotKey encrypted_snapshot_key;
