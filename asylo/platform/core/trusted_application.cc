@@ -582,6 +582,11 @@ int __asylo_transfer_secure_snapshot_key(const char *input, size_t input_len,
   return status_serializer.Serialize(status);
 }
 
+int __asylo_initiate_migration() {
+
+  return enc_untrusted_initiate_migration();
+}
+
 }  // extern "C"
 
 }  // namespace asylo

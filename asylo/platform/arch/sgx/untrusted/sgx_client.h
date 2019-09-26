@@ -65,6 +65,7 @@ class SgxClient : public EnclaveClient {
   Status EnterAndRestore(const SnapshotLayout &snapshot_layout);
   Status EnterAndTransferSecureSnapshotKey(
       const ForkHandshakeConfig &fork_handshake_config);
+  Status InitiateMigration();
 
  private:
   friend class SgxLoader;

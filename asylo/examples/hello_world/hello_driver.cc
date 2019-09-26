@@ -64,9 +64,19 @@ void restore_handler(int signo) {
 	//restore from snapshot
 	// we need to have snapshotkey
 	// Transfer snapshot key, which is difficult
-	/*
-	*/
 	LOG(INFO)<<"(" <<getpid() << ") Enclave resume";
+
+	asylo::ForkHandshakeConfig fork_config;
+	fork_config.set_is_parent(false);
+	fork_config.set_socket(NULL);
+	client->EnterAndTransferSecureSnapshotKey(fork_config);
+
+	status = client->EnterAndTransferSecureSnapshotKey(fork_config);
+	if (!status.ok()) {
+		LOG(QFATAL) << "EnterAndTransferSecureSnapshotKey failed: " << status;
+	}
+	LOG(INFO) << "Snapshot key exchanged";
+
 	status = client->EnterAndRestore(snapshot_layout);
 	if (!status.ok()) {
 		LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
@@ -82,7 +92,7 @@ void snapshot_handler(int signo)
 	if (client != NULL) {
 
 		// Take snapshot
-		status = client->EnterAndTakeSnapshot(&snapshot_layout);
+		status = client->InitiateMigration();
 		if (!status.ok()) {
 			LOG(ERROR) << "EnterAndTakeSnapshot failed: " <<status;
 			errno = ENOMEM;
@@ -109,6 +119,7 @@ void snapshot_handler(int signo)
 		sigaction(SIGUSR1,&new_sa,&old_sa);
 
 		// load Enclave
+		/**/
 		load_enclave(g_argc, g_argv, base, length);
 		if (!status.ok()) {
 			LOG(ERROR) << "load_enclave failed: " <<status;
@@ -116,9 +127,9 @@ void snapshot_handler(int signo)
 			return ;
 		}
 
+		/**/
 		LOG(INFO)<<"(" <<getpid() << ") Enclave loaded";
-
-		while (!flag) { // child, wait here
+		while (!flag) {
 			sleep(1);
 		}
 		sigaction(SIGUSR1,&old_sa,&new_sa);
@@ -126,9 +137,14 @@ void snapshot_handler(int signo)
 
 	} else {
 		//parent
-		int wstatus = 0;
+		asylo::ForkHandshakeConfig fork_config;
+		fork_config.set_is_parent(true);
+		fork_config.set_socket(NULL);
+		client->EnterAndTransferSecureSnapshotKey(fork_config);
 
+		int wstatus = 0;
 		waitpid(pid, &wstatus, NULL);
+
 		LOG(INFO) << "child status: " << wstatus;
 		sigaction(SIGUSR2,&old_sa,&new_sa);
 	}	// end parent & go back to the main
@@ -167,10 +183,7 @@ int hello(int argc, char *argv[]) {
   manager = manager_result.ValueOrDie();
   std::cout << "Loading " << FLAGS_enclave_path << std::endl;
   asylo::SgxLoader loader(FLAGS_enclave_path, /*debug=*/true);
-  void *base = (void *)0x7f850a000000;
-  size_t length = 33554432;
-  status = manager->LoadEnclave("hello_enclave", loader, config, base, length);
-  //status = manager->LoadEnclave("hello_enclave", loader, config);
+  status = manager->LoadEnclave("hello_enclave", loader, config);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << FLAGS_enclave_path << " failed: " << status;
   }
@@ -274,4 +287,5 @@ void destroy() {
   _exit(0);
   return ; // never reach here
 }
+
 

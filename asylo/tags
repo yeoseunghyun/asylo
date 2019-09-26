@@ -2427,6 +2427,7 @@ InitializePipes	./platform/posix/io/epoll_test.cc	/^  void InitializePipes() {$/
 InitializePipes	./platform/posix/io/epoll_test.cc	/^  void InitializePipes() {$/;"	f	class:asylo::__anon64::EpollTest
 InitializeSectionMaps	./util/elf_reader.cc	/^Status ElfReaderCreator::InitializeSectionMaps() {$/;"	f	class:asylo::ElfReaderCreator
 InitializeServer	./grpc/util/enclave_server.h	/^  Status InitializeServer() {$/;"	f	class:asylo::final
+InitiateMigration	./platform/arch/sgx/untrusted/sgx_client.cc	/^Status SgxClient::InitiateMigration(sgx_enclave_id_t eid, int* output) {$/;"	f	class:asylo::SgxClient
 InotifyAddWatch	./platform/posix/io/io_context_inotify.cc	/^int IOContextInotify::InotifyAddWatch(const char *pathname, uint32_t mask) {$/;"	f	class:asylo::io::IOContextInotify
 InotifyAddWatch	./platform/posix/io/io_manager.cc	/^int IOManager::InotifyAddWatch(int fd, const char *pathname, uint32_t mask) {$/;"	f	class:asylo::io::IOManager
 InotifyAddWatch	./platform/posix/io/io_manager.h	/^    virtual int InotifyAddWatch(const char *pathname, uint32_t mask) {$/;"	f	class:asylo::io::IOManager::IOContext
@@ -7167,6 +7168,7 @@ _XOPEN_SOURCE	./platform/common/bridge_functions.cc	28;"	d	file:
 _XOPEN_SOURCE	./util/fd_utils.cc	26;"	d	file:
 __asylo_donate_thread	./platform/core/enclave_manager.cc	/^int __asylo_donate_thread(const char *name) {$/;"	f
 __asylo_handle_signal	./platform/core/trusted_application.cc	/^int __asylo_handle_signal(const char *input, size_t input_len) {$/;"	f
+__asylo_initiate_migration	./platform/core/trusted_application.cc	/^int __asylo_initiate_migration() {$/;"	f
 __asylo_restore	./platform/core/trusted_application.cc	/^int __asylo_restore(const char *input, size_t input_len, char **output,$/;"	f
 __asylo_take_snapshot	./platform/core/trusted_application.cc	/^int __asylo_take_snapshot(char **output, size_t *output_len) {$/;"	f
 __asylo_threading_donate	./platform/core/trusted_application.cc	/^int __asylo_threading_donate() {$/;"	f
@@ -7951,6 +7953,7 @@ bar	./crypto/util/trivial_object_util_test.cc	/^  uint64_t bar;$/;"	m	struct:asy
 bar	./crypto/util/trivial_object_util_test.cc	/^  uint64_t bar;$/;"	m	struct:asylo::__anon276::TrivialStructure	file:
 bar	./util/statusor_test.cc	/^  int bar;$/;"	m	struct:asylo::__anon231::Foo	file:
 bar	./util/statusor_test.cc	/^  int bar;$/;"	m	struct:asylo::__anon485::Foo	file:
+base	./examples/hello_world/hello_driver.cc	/^void *base = 0;$/;"	v
 base	./grpc/auth/core/enclave_transport_security.cc	/^  tsi_handshaker base;$/;"	m	struct:asylo::tsi_enclave_handshaker	file:
 base	./grpc/auth/core/enclave_transport_security.cc	/^  tsi_handshaker_result base;$/;"	m	struct:asylo::tsi_enclave_handshaker_result	file:
 base_address	./platform/arch/sgx/untrusted/sgx_client.h	/^  const void *base_address() const {$/;"	f	class:asylo::SgxClient
@@ -8076,7 +8079,7 @@ ciphertext_deleter_	./platform/posix/fork_security_test_driver.cc	/^    MallocUn
 ciphertext_deleter_	./platform/posix/fork_security_test_driver.cc	/^    MallocUniquePtr<void> ciphertext_deleter_;$/;"	m	class:asylo::__anon51::SnapshotDeleter::SnapshotEntryDeleter	file:
 cleanup_function_	./util/cleanup.h	/^  std::function<void()> cleanup_function_;$/;"	m	class:asylo::Cleanup
 cleanup_functions_	./platform/posix/threading/thread_manager.h	/^    std::stack<std::function<void()>> cleanup_functions_;$/;"	m	class:asylo::ThreadManager::Thread
-client	./examples/hello_world/hello_driver.cc	/^asylo::EnclaveClient *client;$/;"	v
+client	./examples/hello_world/hello_driver.cc	/^asylo::SgxClient *client;$/;"	v
 client	./test/misc/active_enclave_signal_test_driver.cc	/^  EnclaveClient *client;$/;"	m	struct:asylo::__anon198::RunEnclaveThreadInput	file:
 client	./test/misc/active_enclave_signal_test_driver.cc	/^  EnclaveClient *client;$/;"	m	struct:asylo::__anon452::RunEnclaveThreadInput	file:
 client_	./bazel/application_wrapper/application_wrapper_driver_main_test.cc	/^  StrictMock<MockEnclaveClient> *client_;$/;"	m	class:asylo::__anon184::ApplicationWrapperDriverMainTest	file:
@@ -8125,6 +8128,7 @@ code_	./test/util/status_matchers.h	/^  const Enum code_;$/;"	m	class:asylo::int
 code_translation_map_	./util/error_space.h	/^      code_translation_map_;$/;"	m	class:asylo::error::ErrorSpaceImplementationHelper
 codes_	./util/posix_error_space_test.cc	/^  std::set<PosixError> codes_;$/;"	m	class:asylo::error::__anon235::PosixErrorSpaceTest	file:
 codes_	./util/posix_error_space_test.cc	/^  std::set<PosixError> codes_;$/;"	m	class:asylo::error::__anon489::PosixErrorSpaceTest	file:
+config	./examples/hello_world/hello_driver.cc	/^asylo::EnclaveConfig config;$/;"	v
 config	./platform/primitives/test/sgx_test_backend.h	/^    EnclaveConfig config;$/;"	m	struct:asylo::primitives::test::SgxTestBackend::LoadEnclaveConfig
 config_	./identity/sgx/sgx_local_assertion_authority_test.cc	/^  std::string config_;$/;"	m	class:asylo::__anon160::SgxLocalAssertionAuthorityTest	file:
 config_	./identity/sgx/sgx_local_assertion_authority_test.cc	/^  std::string config_;$/;"	m	class:asylo::__anon414::SgxLocalAssertionAuthorityTest	file:
@@ -8257,6 +8261,7 @@ desc2_	./grpc/auth/core/assertion_description_test.cc	/^  assertion_description 
 desc2_	./grpc/auth/core/assertion_description_test.cc	/^  assertion_description desc2_;$/;"	m	class:asylo::__anon513::AssertionDescriptionTest	file:
 descriptions	./grpc/auth/core/assertion_description.h	/^  assertion_description *descriptions;$/;"	m	struct:__anon9
 dest	./platform/posix/include/netinet/udp.h	/^  uint16_t dest;$/;"	m	struct:udphdr
+destroy	./examples/hello_world/hello_driver.cc	/^void destroy() {$/;"	f
 destroy	./util/cleansing_allocator.h	/^  void destroy(T *ptr) { std::allocator_traits<A>::destroy(alloc_, ptr); }$/;"	f	class:asylo::CleansingAllocator
 destroyed_	./platform/common/singleton.h	/^bool Singleton<T, F>::destroyed_ = false;$/;"	m	class:asylo::Singleton
 detachable_function	./test/misc/threaded_test.cc	/^void *detachable_function(void *arg) {$/;"	f	namespace:asylo::__anon208
@@ -8286,6 +8291,7 @@ dup	./platform/posix/unistd.cc	/^int dup(int oldfd) { return IOManager::GetInsta
 dup2	./platform/posix/unistd.cc	/^int dup2(int oldfd, int newfd) {$/;"	f
 ecall_dispatch_trusted_call	./platform/arch/sgx/trusted/ecalls.cc	/^int ecall_dispatch_trusted_call(uint64_t selector, void *buffer) {$/;"	f
 ecall_handle_signal	./platform/arch/sgx/trusted/ecalls.cc	/^int ecall_handle_signal(const char *input, bridge_size_t input_len) {$/;"	f
+ecall_initiate_migration	./platform/arch/sgx/trusted/ecalls.cc	/^int ecall_initiate_migration() {$/;"	f
 ecall_restore	./platform/arch/sgx/trusted/ecalls.cc	/^int ecall_restore(const char *input, bridge_size_t input_len, char **output,$/;"	f
 ecall_take_snapshot	./platform/arch/sgx/trusted/ecalls.cc	/^int ecall_take_snapshot(char **output, bridge_size_t *output_len) {$/;"	f
 ecall_transfer_secure_snapshot_key	./platform/arch/sgx/trusted/ecalls.cc	/^int ecall_transfer_secure_snapshot_key(const char *input,$/;"	f
@@ -8373,6 +8379,7 @@ enc_untrusted_getuid	./platform/host_call/trusted/host_calls.cc	/^uid_t enc_untr
 enc_untrusted_hex_dump	./platform/arch/sgx/trusted/host_calls.cc	/^void enc_untrusted_hex_dump(const void *buf, int nbytes) {$/;"	f
 enc_untrusted_inet_ntop	./platform/arch/sgx/trusted/host_calls.cc	/^const char *enc_untrusted_inet_ntop(int af, const void *src, char *dst,$/;"	f
 enc_untrusted_inet_pton	./platform/arch/sgx/trusted/host_calls.cc	/^int enc_untrusted_inet_pton(int af, const char *src, void *dst) {$/;"	f
+enc_untrusted_initiate_migration	./platform/arch/sgx/trusted/host_calls.cc	/^int enc_untrusted_initiate_migration() {$/;"	f
 enc_untrusted_inotify_add_watch	./platform/arch/sgx/trusted/host_calls.cc	/^int enc_untrusted_inotify_add_watch(int fd, const char *pathname,$/;"	f
 enc_untrusted_inotify_add_watch	./platform/host_call/trusted/host_calls.cc	/^int enc_untrusted_inotify_add_watch(int fd, const char *pathname,$/;"	f
 enc_untrusted_inotify_init1	./platform/arch/sgx/trusted/host_calls.cc	/^int enc_untrusted_inotify_init1(int non_block) {$/;"	f
@@ -8692,6 +8699,7 @@ find_parameter_flags	./platform/system_call/metadata.cc	/^size_t find_parameter_
 find_parameter_flags	./platform/system_call/metadata.cc	/^size_t find_parameter_flags(int sysno, int index) {$/;"	f	namespace:asylo::system_call::__anon370
 find_parameter_index	./platform/system_call/metadata.cc	/^size_t find_parameter_index(int sysno, int index) {$/;"	f	namespace:asylo::system_call::__anon116
 find_parameter_index	./platform/system_call/metadata.cc	/^size_t find_parameter_index(int sysno, int index) {$/;"	f	namespace:asylo::system_call::__anon370
+flag	./examples/hello_world/hello_driver.cc	/^int flag = 0;$/;"	v
 flags	./identity/sgx/secs_attributes.h	/^  uint64_t flags;$/;"	m	struct:asylo::sgx::SecsAttributeBit::SecsAttributeSet
 flags	./platform/common/bridge_types.h	/^  int flags;$/;"	m	struct:BridgeSignalHandler
 flags	./platform/primitives/util/trusted_runtime_helper.cc	/^  uint64_t flags = 0;$/;"	m	struct:asylo::primitives::__anon340::__anon341	file:
@@ -9099,6 +9107,7 @@ isvsvn_	./identity/sgx/fake_enclave.h	/^  uint16_t isvsvn_;$/;"	m	class:asylo::s
 it_interval	./platform/common/bridge_types.h	/^  struct bridge_timeval it_interval;$/;"	m	struct:BridgeITimerVal	typeref:struct:BridgeITimerVal::bridge_timeval
 it_value	./platform/common/bridge_types.h	/^  struct bridge_timeval it_value;$/;"	m	struct:BridgeITimerVal	typeref:struct:BridgeITimerVal::bridge_timeval
 item_	./platform/primitives/parameter_stack.h	/^    Item *item_;$/;"	m	class:asylo::primitives::ParameterStack::ItemDeleter
+j	./examples/hello_world/hello_enclave.cc	/^int j;$/;"	v
 kAbortEnclaveSelector	./platform/host_call/test/enclave_test_selectors.h	/^constexpr uint64_t kAbortEnclaveSelector = primitives::kSelectorUser;$/;"	m	namespace:asylo::host_call
 kAbortEnclaveSelector	./platform/primitives/examples/hello_enclave.h	/^static constexpr uint64_t kAbortEnclaveSelector = kSelectorUser + 1;$/;"	m	namespace:asylo::primitives
 kAbortEnclaveSelector	./platform/primitives/test/test_selectors.h	/^constexpr uint64_t kAbortEnclaveSelector = kSelectorUser + 1;$/;"	m	namespace:asylo::primitives
@@ -10057,6 +10066,7 @@ le64toh	./platform/posix/endian.cc	/^uint64_t le64toh(uint64_t little_endian_64b
 len	./platform/common/bridge_types.h	/^  uint32_t len;$/;"	m	struct:bridge_sockaddr_un
 len	./platform/posix/include/netinet/udp.h	/^  uint16_t len;$/;"	m	struct:udphdr
 len	./platform/posix/include/sys/inotify.h	/^  uint32_t len;     \/\/ Size of name field$/;"	m	struct:inotify_event
+length	./examples/hello_world/hello_driver.cc	/^size_t length = 0;$/;"	v
 length	./platform/posix/include/sys/ioctl.h	/^  uint32_t length;$/;"	m	struct:key_info
 line_	./test/util/exec_tester_test.cc	/^    std::string line_;$/;"	m	class:asylo::experimental::__anon216::ExecTesterTest::UniformOutputChecker	file:
 line_	./test/util/exec_tester_test.cc	/^    std::string line_;$/;"	m	class:asylo::experimental::__anon470::ExecTesterTest::UniformOutputChecker	file:
@@ -10065,6 +10075,7 @@ list_	./platform/posix/pthread_impl.h	/^  __pthread_list_t *const list_;$/;"	m	c
 list_	./test/misc/pthread_test.cc	/^  QueueOperations list_;$/;"	m	class:asylo::pthread_impl::__anon201::QueueOperationsTest	file:
 list_	./test/misc/pthread_test.cc	/^  QueueOperations list_;$/;"	m	class:asylo::pthread_impl::__anon455::QueueOperationsTest	file:
 listen	./platform/posix/sockets/socket.cc	/^int listen(int sockfd, int backlog) {$/;"	f
+load_enclave	./examples/hello_world/hello_driver.cc	/^int load_enclave(int argc, char *argv[], void *base, size_t length) {$/;"	f
 loader_	./test/loader/loader_test.cc	/^  FakeLoader<TestClient> loader_;$/;"	m	class:asylo::__anon215::LoaderTest	file:
 loader_	./test/loader/loader_test.cc	/^  FakeLoader<TestClient> loader_;$/;"	m	class:asylo::__anon469::LoaderTest	file:
 loader_	./test/misc/double_die.cc	/^  std::unique_ptr<SgxLoader> loader_;$/;"	m	class:asylo::__anon192::DieTest	file:
@@ -10305,6 +10316,7 @@ name_table_name_	./util/elf_reader_test.cc	/^  const absl::string_view name_tabl
 name_table_name_	./util/elf_reader_test.cc	/^  const absl::string_view name_table_name_;$/;"	m	class:asylo::__anon480::ElfReaderTest	file:
 namer_	./platform/common/static_map.h	/^  static N namer_;$/;"	m	class:asylo::StaticMap
 namer_	./platform/common/static_map.h	/^N StaticMap<MapName, T, N>::namer_;$/;"	m	class:asylo::StaticMap
+names	./examples/hello_world/hello_driver.cc	/^std::vector<std::string> names;$/;"	v
 nanosleep	./platform/posix/time.cc	/^int nanosleep(const struct timespec *requested, struct timespec *remainder) {$/;"	f
 nanosleep	./platform/primitives/sim/runtime_stubs.c	/^int nanosleep() { return 0; }$/;"	f
 new_sa	./examples/hello_world/hello_driver.cc	/^struct sigaction new_sa;$/;"	v	typeref:struct:sigaction
@@ -10493,6 +10505,7 @@ ocall_enc_untrusted_gettimeofday	./platform/arch/sgx/untrusted/ocalls.cc	/^int o
 ocall_enc_untrusted_hex_dump	./platform/arch/sgx/untrusted/ocalls.cc	/^void ocall_enc_untrusted_hex_dump(const void *buf, int nbytes) {$/;"	f
 ocall_enc_untrusted_inet_ntop	./platform/arch/sgx/untrusted/ocalls.cc	/^char *ocall_enc_untrusted_inet_ntop(int af, const void *src,$/;"	f
 ocall_enc_untrusted_inet_pton	./platform/arch/sgx/untrusted/ocalls.cc	/^int ocall_enc_untrusted_inet_pton(AfFamily af, const char *src, void *dst,$/;"	f
+ocall_enc_untrusted_initiate_migration	./platform/arch/sgx/untrusted/ocalls.cc	/^int ocall_enc_untrusted_initiate_migration(const char *enclave_name) {$/;"	f
 ocall_enc_untrusted_inotify_add_watch	./platform/arch/sgx/untrusted/ocalls.cc	/^int ocall_enc_untrusted_inotify_add_watch(const char *serialized_args,$/;"	f
 ocall_enc_untrusted_inotify_init1	./platform/arch/sgx/untrusted/ocalls.cc	/^int ocall_enc_untrusted_inotify_init1(int non_block) {$/;"	f
 ocall_enc_untrusted_inotify_read	./platform/arch/sgx/untrusted/ocalls.cc	/^int ocall_enc_untrusted_inotify_read(int fd, bridge_size_t count,$/;"	f
@@ -11241,6 +11254,7 @@ resource	./platform/core/shared_resource_manager.h	/^    T *resource;$/;"	m	stru
 resource	./platform/core/shared_resource_manager.h	/^    std::unique_ptr<T, Deleter> resource;$/;"	m	struct:asylo::SharedResourceManager::ManagedResource
 resource_name	./platform/core/shared_resource_manager.h	/^    SharedName resource_name;$/;"	m	struct:asylo::SharedResourceManager::ResourceHandle
 restore	./platform/arch/sgx/untrusted/sgx_client.cc	/^static Status restore(sgx_enclave_id_t eid, const char *input, size_t input_len,$/;"	f	namespace:asylo
+restore_handler	./examples/hello_world/hello_driver.cc	/^void restore_handler(int signo) {$/;"	f
 result	./platform/system_call/message.h	/^  \/* byte: 16 ..  23 *\/ uint64_t result;                 \/\/ System call result.$/;"	m	struct:asylo::system_call::MessageHeader
 result	./platform/system_call/message.h	/^  uint64_t result() const { return header()->result; }$/;"	f	class:asylo::system_call::MessageReader
 result_	./platform/system_call/message.h	/^  uint64_t result_;$/;"	m	class:asylo::system_call::MessageWriter
@@ -11475,7 +11489,6 @@ signal_handled	./test/misc/active_enclave_signal_test_enclave.cc	/^static volati
 signal_handled	./test/misc/inactive_enclave_signal_test_enclave.cc	/^static bool signal_handled = false;$/;"	m	namespace:asylo	file:
 signal_handled	./test/misc/raise_signal_test.cc	/^static bool signal_handled = false;$/;"	m	namespace:asylo::__anon199	file:
 signal_handled	./test/misc/raise_signal_test.cc	/^static bool signal_handled = false;$/;"	m	namespace:asylo::__anon453	file:
-signal_handler	./examples/hello_world/hello_driver.cc	/^void signal_handler(int signo)$/;"	f
 signal_handler_interrupted	./test/misc/active_enclave_signal_test_enclave.cc	/^static volatile thread_local bool signal_handler_interrupted = false;$/;"	m	namespace:asylo	file:
 signal_mask_	./platform/posix/signal/signal_manager.h	/^  thread_local static sigset_t signal_mask_;$/;"	m	class:asylo::SignalManager
 signal_test_type	./test/misc/active_enclave_signal_test_driver.cc	/^  SignalTestInput::SignalTestType signal_test_type;$/;"	m	struct:asylo::__anon198::SendSignalThreadInput	file:
@@ -11541,6 +11554,8 @@ small_data_	./platform/posix/pipe_test.cc	/^  std::vector<uint8_t> small_data_;$
 small_data_	./platform/posix/pipe_test.cc	/^  std::vector<uint8_t> small_data_;$/;"	m	class:asylo::__anon47::PipeTest	file:
 snapshot_deleter_	./platform/posix/fork_security_test_driver.cc	/^  SnapshotDeleter snapshot_deleter_;$/;"	m	class:asylo::__anon305::ForkSecurityTest	file:
 snapshot_deleter_	./platform/posix/fork_security_test_driver.cc	/^  SnapshotDeleter snapshot_deleter_;$/;"	m	class:asylo::__anon51::ForkSecurityTest	file:
+snapshot_handler	./examples/hello_world/hello_driver.cc	/^void snapshot_handler(int signo)$/;"	f
+snapshot_layout	./examples/hello_world/hello_driver.cc	/^asylo::SnapshotLayout snapshot_layout;$/;"	v
 snapshot_layout_	./examples/grpc_server/grpc_server_driver.cc	/^asylo::SnapshotLayout snapshot_layout_;$/;"	v
 snapshot_layout_	./platform/posix/fork_security_test_driver.cc	/^  SnapshotLayout snapshot_layout_;$/;"	m	class:asylo::__anon305::ForkSecurityTest	file:
 snapshot_layout_	./platform/posix/fork_security_test_driver.cc	/^  SnapshotLayout snapshot_layout_;$/;"	m	class:asylo::__anon51::ForkSecurityTest	file:

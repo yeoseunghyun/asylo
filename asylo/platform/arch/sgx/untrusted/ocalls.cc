@@ -983,6 +983,85 @@ uint32_t ocall_enc_untrusted_sleep(uint32_t seconds) { return sleep(seconds); }
 
 void ocall_enc_untrusted__exit(int rc) { _exit(rc); }
 
+int ocall_enc_untrusted_initiate_migration(const char *enclave_name) {
+  auto manager_result = asylo::EnclaveManager::Instance();
+  if (!manager_result.ok()) {
+    return -1;
+  }
+  asylo::EnclaveManager *manager = manager_result.ValueOrDie();
+  asylo::SgxClient *client = dynamic_cast<asylo::SgxClient *>(
+      manager->GetClient(enclave_name));
+
+  // A snapshot should be taken and restored for fork, take a snapshot of the
+  // current enclave memory.
+  // Here, we get the base address
+  void *enclave_base_address = client->base_address();
+  asylo::SnapshotLayout snapshot_layout;
+  asylo::Status status = client->EnterAndTakeSnapshot(&snapshot_layout);
+  if (!status.ok()) {
+    LOG(ERROR) << "EnterAndTakeSnapshot failed: " << status;
+    errno = ENOMEM;
+    return -1;
+  }
+
+  LOG(INFO) << "This is snapshot1 : " << &snapshot_layout;
+  FILE * fp = fopen("/tmp/snapshot_layout2", "wb");
+  fwrite(&snapshot_layout, sizeof(asylo::SnapshotLayout), 1, fp);
+  fclose(fp);
+  // The snapshot memory should be freed in both the parent and the child
+  // process.
+  std::vector<SnapshotDataDeleter> data_deleter_;
+  std::vector<SnapshotDataDeleter> bss_deleter_;
+  std::vector<SnapshotDataDeleter> heap_deleter_;
+  std::vector<SnapshotDataDeleter> thread_deleter_;
+  std::vector<SnapshotDataDeleter> stack_deleter_;
+
+  std::transform(snapshot_layout.data().cbegin(), snapshot_layout.data().cend(),
+                 std::back_inserter(data_deleter_),
+                 [](const asylo::SnapshotLayoutEntry &entry) {
+                   return SnapshotDataDeleter(entry);
+                 });
+
+  std::transform(snapshot_layout.bss().cbegin(), snapshot_layout.bss().cend(),
+                 std::back_inserter(bss_deleter_),
+                 [](const asylo::SnapshotLayoutEntry &entry) {
+                   return SnapshotDataDeleter(entry);
+                 });
+
+  std::transform(snapshot_layout.heap().cbegin(), snapshot_layout.heap().cend(),
+                 std::back_inserter(heap_deleter_),
+                 [](const asylo::SnapshotLayoutEntry &entry) {
+                   return SnapshotDataDeleter(entry);
+                 });
+
+  std::transform(snapshot_layout.thread().cbegin(),
+                 snapshot_layout.thread().cend(),
+                 std::back_inserter(thread_deleter_),
+                 [](const asylo::SnapshotLayoutEntry &entry) {
+                   return SnapshotDataDeleter(entry);
+                 });
+
+  std::transform(snapshot_layout.stack().cbegin(),
+                 snapshot_layout.stack().cend(),
+                 std::back_inserter(stack_deleter_),
+                 [](const asylo::SnapshotLayoutEntry &entry) {
+                   return SnapshotDataDeleter(entry);
+                 });
+
+  asylo::EnclaveLoader *loader = manager->GetLoaderFromClient(client);
+
+  // The child enclave should use the same loader as the parent. It loads by an
+  // SGX loader or SGX embedded loader depending on the parent enclave.
+  if (!dynamic_cast<asylo::SgxLoader *>(loader) &&
+      !dynamic_cast<asylo::SgxEmbeddedLoader *>(loader)) {
+    LOG(ERROR) << "Failed to get the loader for the enclave to fork";
+    errno = EFAULT;
+    return -1;
+  }
+
+
+}
+
 pid_t ocall_enc_untrusted_fork(const char *enclave_name, const char *config,
                                bridge_size_t config_len,
                                bool restore_snapshot) {

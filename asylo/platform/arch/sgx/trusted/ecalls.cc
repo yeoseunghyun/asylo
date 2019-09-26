@@ -115,6 +115,22 @@ int ecall_transfer_secure_snapshot_key(const char *input,
   return result;
 }
 
+int ecall_initiate_migration() {
+  int result = 0;
+
+  // for saving thread layout & set fork requested
+  asylo::SaveThreadLayoutForSnapshot();
+  asylo::SetForkRequested();
+
+  try {
+    result = asylo::__asylo_initiate_migration();
+  } catch (...) {
+    LOG(FATAL) << "Uncaught exception in enclave";
+  }
+
+  return result;
+}
+
 // Invokes the trusted entry point designated by |selector|. Returns a
 // non-zero error code on failure.
 int ecall_dispatch_trusted_call(uint64_t selector, void *buffer) {
