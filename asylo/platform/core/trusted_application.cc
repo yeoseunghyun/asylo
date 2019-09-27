@@ -584,7 +584,7 @@ int __asylo_transfer_secure_snapshot_key(const char *input, size_t input_len,
 
 int __asylo_initiate_migration() {
 
-  return enc_untrusted_initiate_migration();
+  return enc_untrusted_initiate_migration(asylo::GetEnclaveName().c_str());
 }
 
 }  // extern "C"

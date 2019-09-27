@@ -1040,10 +1040,9 @@ pid_t enc_untrusted_fork(const char *enclave_name, const char *config,
   return ret;
 }
 
-int enc_untrusted_initiate_migration() {
+int enc_untrusted_initiate_migration(const char *enclave_name) {
   int ret = 0;
-  sgx_status_t status = ocall_enc_untrusted_initiate_migration(
-		asylo::GetEnclaveName().c_str());
+  sgx_status_t status = ocall_enc_untrusted_initiate_migration(&ret, enclave_name);
   if (status != SGX_SUCCESS) {
     errno = EINTR;
     return -1;
