@@ -19,6 +19,10 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define SIGSNAPSHOT SIGUSR2
 
@@ -28,6 +32,9 @@
 #include "asylo/client.h"
 #include "asylo/examples/hello_mig/hello.pb.h"
 #include "asylo/util/logging.h"
+
+#include "asylo/platform/arch/fork.pb.h"
+#include "asylo/platform/common/memory.h"
 
 ABSL_FLAG(std::string, enclave_path, "", "Path to enclave to load");
 ABSL_FLAG(std::string, names, "",
@@ -95,9 +102,8 @@ void ReloadEnclave(void *base, size_t size) {
   asylo::EnclaveManager *manager = manager_result.ValueOrDie();
   std::cout << "Loading " << absl::GetFlag(FLAGS_enclave_path) << std::endl;
   asylo::SgxLoader loader(absl::GetFlag(FLAGS_enclave_path), /*debug=*/true);
-  //asylo::EnclaveConfig config = GetApplicationConfig();
-  asylo::Status status = manager->LoadEnclave("hello_enclave", loader, base, size);
-  //asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config, base, size);
+  asylo::EnclaveConfig config = GetApplicationConfig();
+  asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config, base, size);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << absl::GetFlag(FLAGS_enclave_path)
                 << " failed: " << status;
@@ -190,12 +196,11 @@ int main(int argc, char *argv[]) {
   std::cout << "Loading " << absl::GetFlag(FLAGS_enclave_path) << std::endl;
 
 
-  //asylo::EnclaveConfig config = GetApplicationConfig();
-  //config.set_enable_fork(true);
+  asylo::EnclaveConfig config = GetApplicationConfig();
+  config.set_enable_fork(true);
 
   asylo::SgxLoader loader(absl::GetFlag(FLAGS_enclave_path), /*debug=*/true);
-  //asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config);
-  asylo::Status status = manager->LoadEnclave("hello_enclave", loader);
+  asylo::Status status = manager->LoadEnclave("hello_enclave", loader, config);
   if (!status.ok()) {
     LOG(QFATAL) << "Load " << absl::GetFlag(FLAGS_enclave_path)
                 << " failed: " << status;
