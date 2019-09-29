@@ -62,8 +62,6 @@ int ecall_handle_signal(const char *input, bridge_size_t input_len) {
 int ecall_take_snapshot(char **output, bridge_size_t *output_len) {
   int result = 0;
   size_t tmp_output_len = 0;
-  asylo::SaveThreadLayoutForSnapshot();
-  asylo::SetForkRequested();
   try {
     result =
         asylo::__asylo_take_snapshot(output, &tmp_output_len);
