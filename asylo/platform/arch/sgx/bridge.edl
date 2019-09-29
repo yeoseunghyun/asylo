@@ -80,6 +80,9 @@ enclave {
 	bridge_size_t input_len,
 	[out] char **output,
 	[out] bridge_size_t *output_len);
+
+	// Invokes a utility ecall that enters the enclave to initiate migration
+	utility_tcs public int ecall_initiate_migration();
   };
 
   // Unless otherwise specified, each of the following calls invokes the
@@ -352,6 +355,8 @@ enclave {
 	bridge_size_t config_len,
 	bool restore_snapshot)
 	allow(ecall_take_snapshot, ecall_restore) propagate_errno;
+	int ocall_enc_untrusted_initiate_migration(
+	[in, string]const char* enclave_name) propagate_errno;
 
     //////////////////////////////////////
     //           utime.h                //

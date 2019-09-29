@@ -159,6 +159,8 @@ class TrustedApplication {
                                                   size_t input_len,
                                                   char **output,
                                                   size_t *output_len);
+
+  friend int __asylo_initiate_migration();
 };
 
 /// User-supplied factory function for making a trusted application instance.

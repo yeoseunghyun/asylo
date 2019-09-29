@@ -65,6 +65,8 @@ class SgxClient : public GenericEnclaveClient {
   Status EnterAndTransferSecureSnapshotKey(
       const ForkHandshakeConfig &fork_handshake_config);
 
+  Status InitiateMigration();
+
  private:
   friend class SgxLoader;
   friend class SgxEmbeddedLoader;

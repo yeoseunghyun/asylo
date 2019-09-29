@@ -64,6 +64,10 @@ int __asylo_transfer_secure_snapshot_key(const char *input, size_t input_len,
   return 0;
 }
 
+int __asylo_initiate_migration() {
+  return 0;
+}
+
 }  // extern "C"
 
 }  // namespace asylo

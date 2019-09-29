@@ -301,6 +301,22 @@ Status SgxClient::EnterAndTransferSecureSnapshotKey(
   return status;
 }
 
+Status SgxClient::InitiateMigration() {
+  int result = 0;
+  sgx_status_t sgx_status;
+
+  try {
+    sgx_status = ecall_initiate_migration(primitive_sgx_client_->GetEnclaveId(), &result);
+  } catch (...) {
+    LOG(FATAL) << "Uncaught exception in enclave";
+  }
+
+  if (sgx_status != SGX_SUCCESS) {
+	return Status(sgx_status, "Call to ecall_initiate_migration failed");
+  }
+  return Status::OkStatus();
+}
+
 bool SgxClient::IsTcsActive() {
   return (sgx_is_tcs_active(primitive_sgx_client_->GetEnclaveId()) != 0);
 }
