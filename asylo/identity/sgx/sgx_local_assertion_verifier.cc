@@ -28,9 +28,9 @@
 #include "asylo/crypto/util/trivial_object_util.h"
 #include "asylo/identity/descriptions.h"
 #include "asylo/identity/sgx/code_identity_constants.h"
-#include "asylo/identity/sgx/code_identity_util.h"
 #include "asylo/identity/sgx/identity_key_management_structs.h"
 #include "asylo/identity/sgx/local_assertion.pb.h"
+#include "asylo/identity/sgx/sgx_identity_util_internal.h"
 #include "asylo/identity/sgx/sgx_local_assertion_authority_config.pb.h"
 #include "asylo/util/status_macros.h"
 
@@ -176,23 +176,15 @@ Status SgxLocalAssertionVerifier::Verify(const std::string &user_data,
   ASYLO_RETURN_IF_ERROR(hash.CumulativeHash(&digest));
   expected_reportdata.data.replace(/*pos=*/0, digest);
 
-  if (expected_reportdata.data != report.reportdata.data) {
+  if (expected_reportdata.data != report.body.reportdata.data) {
     return Status(error::GoogleError::INTERNAL,
                   "Assertion is not bound to the provided user-data");
   }
 
-  // Serialize the protobuf representation of the peer's SGX code identity and
-  // save it in |peer_identity|.
-  sgx::CodeIdentity code_identity;
-  ASYLO_RETURN_IF_ERROR(
-      sgx::ParseIdentityFromHardwareReport(report, &code_identity));
-
-  if (!code_identity.SerializeToString(peer_identity->mutable_identity())) {
-    return Status(error::GoogleError::INTERNAL,
-                  "Failed to serialize CodeIdentity");
-  }
-
-  SetSgxIdentityDescription(peer_identity->mutable_description());
+  // Serialize the protobuf representation of the peer's SGX identity and save
+  // it in |peer_identity|.
+  SgxIdentity sgx_identity = sgx::ParseSgxIdentityFromHardwareReport(report);
+  ASYLO_RETURN_IF_ERROR(sgx::SerializeSgxIdentity(sgx_identity, peer_identity));
 
   return Status::OkStatus();
 }

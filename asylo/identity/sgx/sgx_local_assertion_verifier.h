@@ -19,9 +19,8 @@
 #ifndef ASYLO_IDENTITY_SGX_SGX_LOCAL_ASSERTION_VERIFIER_H_
 #define ASYLO_IDENTITY_SGX_SGX_LOCAL_ASSERTION_VERIFIER_H_
 
-#include "asylo/identity/enclave_assertion_verifier.h"
-
 #include "absl/synchronization/mutex.h"
+#include "asylo/identity/attestation/enclave_assertion_verifier.h"
 
 namespace asylo {
 
@@ -72,7 +71,7 @@ class SgxLocalAssertionVerifier final : public EnclaveAssertionVerifier {
   std::string attestation_domain_;
 
   // Indicates whether this verifier has been initialized.
-  bool initialized_ GUARDED_BY(initialized_mu_);
+  bool initialized_ ABSL_GUARDED_BY(initialized_mu_);
 
   // A mutex that guards the initialized_ member.
   mutable absl::Mutex initialized_mu_;

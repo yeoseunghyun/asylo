@@ -18,8 +18,4 @@ syntax = "proto2";
 
 package asylo;
 
-// Message representing a SHA256 hash. A corresponding cc util library
-// implements operators for equality and inequality testing.
-message Sha256HashProto {
-  required bytes hash = 1;  // Must be exactly 32 bytes
-}
+import public "asylo/crypto/sha256_hash.proto";

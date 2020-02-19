@@ -19,13 +19,13 @@
 #include "asylo/platform/posix/io/native_paths.h"
 
 #include <fcntl.h>
+
 #include <cerrno>
 #include <cstring>
 
-#include "asylo/platform/arch/include/trusted/host_calls.h"
-#include "asylo/platform/core/bridge_msghdr_wrapper.h"
-#include "asylo/platform/core/untrusted_cache_malloc.h"
+#include "asylo/platform/host_call/trusted/host_calls.h"
 #include "asylo/platform/posix/io/secure_paths.h"
+#include "asylo/platform/posix/io/io_context_inotify.h"
 
 namespace asylo {
 namespace io {
@@ -58,6 +58,10 @@ int IOContextNative::FStat(struct stat *stat_buffer) {
   return enc_untrusted_fstat(host_fd_, stat_buffer);
 }
 
+int IOContextNative::FStatFs(struct statfs *statfs_buffer) {
+  return enc_untrusted_fstatfs(host_fd_, statfs_buffer);
+}
+
 int IOContextNative::FTruncate(off_t length) {
   return enc_untrusted_ftruncate(host_fd_, length);
 }
@@ -72,40 +76,18 @@ int IOContextNative::FLock(int operation) {
   return enc_untrusted_flock(host_fd_, operation);
 }
 
-bool IOContextNative::CreateUntrustedBuffer(const struct iovec *iov, int iovcnt,
-                                            char **buf, int *size) {
-  size_t total_size = 0;
+void IOContextNative::FillIov(const char *buf, int size,
+                              const struct iovec *iov, int iovcnt) {
+  size_t bytes_left = size;
   for (int i = 0; i < iovcnt; ++i) {
-    total_size += iov[i].iov_len;
+    if (bytes_left == 0) {
+      break;
+    }
+    int bytes_to_copy = std::min(bytes_left, iov[i].iov_len);
+    memcpy(iov[i].iov_base, buf, bytes_to_copy);
+    buf += bytes_to_copy;
+    bytes_left -= bytes_to_copy;
   }
-
-  // Instance of the global memory pool singleton.
-  asylo::UntrustedCacheMalloc *untrusted_cache_malloc =
-      asylo::UntrustedCacheMalloc::Instance();
-  char *tmp = reinterpret_cast<char *>(
-      untrusted_cache_malloc->Malloc(total_size * sizeof(char)));
-  if (!tmp) {
-    return false;
-  }
-  *size = total_size;
-  *buf = tmp;
-  return true;
-}
-
-bool IOContextNative::SerializeIov(const struct iovec *iov, int iovcnt,
-                                   char **buf, int *size) {
-  char *tmp;
-  if (!CreateUntrustedBuffer(iov, iovcnt, &tmp, size)) {
-    return false;
-  }
-  size_t copied_bytes = 0;
-  for (int i = 0; i < iovcnt; ++i) {
-    size_t len =  iov[i].iov_len;
-    memcpy(tmp + copied_bytes, iov[i].iov_base, len);
-    copied_bytes += len;
-  }
-  *buf = tmp;
-  return true;
 }
 
 ssize_t IOContextNative::Writev(const struct iovec *iov, int iovcnt) {
@@ -114,12 +96,18 @@ ssize_t IOContextNative::Writev(const struct iovec *iov, int iovcnt) {
     return -1;
   }
 
-  char *buf;
-  int size;
-  if (!SerializeIov(iov, iovcnt, &buf, &size)) {
-    return -1;
+  size_t total_size = 0;
+  for (int i = 0; i < iovcnt; ++i) {
+    total_size += iov[i].iov_len;
   }
-  return enc_untrusted_writev(host_fd_, buf, size);
+  std::unique_ptr<char[]> trusted_buf(new char[total_size]);
+  size_t copied_bytes = 0;
+  for (int i = 0; i < iovcnt; ++i) {
+    memcpy(trusted_buf.get() + copied_bytes, iov[i].iov_base, iov[i].iov_len);
+    copied_bytes += iov[i].iov_len;
+  }
+
+  return enc_untrusted_write(host_fd_, trusted_buf.get(), total_size);
 }
 
 ssize_t IOContextNative::Readv(const struct iovec *iov, int iovcnt) {
@@ -127,16 +115,21 @@ ssize_t IOContextNative::Readv(const struct iovec *iov, int iovcnt) {
     errno = EINVAL;
     return -1;
   }
-  char *buf;
-  int size;
-  if (!CreateUntrustedBuffer(iov, iovcnt, &buf, &size)) {
-    return -1;
+
+  size_t total_size = 0;
+  for (int i = 0; i < iovcnt; ++i) {
+    total_size += iov[i].iov_len;
   }
-  return enc_untrusted_readv(host_fd_, iov, iovcnt, buf, size);
+  std::unique_ptr<char[]> trusted_buf(new char[total_size]);
+
+  ssize_t ret = enc_untrusted_read(host_fd_, trusted_buf.get(), total_size);
+  FillIov(trusted_buf.get(), ret, iov, iovcnt);
+
+  return ret;
 }
 
 ssize_t IOContextNative::PRead(void *buf, size_t count, off_t offset) {
-  return enc_untrusted_pread(host_fd_, buf, count, offset);
+  return enc_untrusted_pread64(host_fd_, buf, count, offset);
 }
 
 int IOContextNative::SetSockOpt(int level, int option_name,
@@ -176,24 +169,11 @@ int IOContextNative::Listen(int backlog) {
 }
 
 ssize_t IOContextNative::SendMsg(const struct msghdr *msg, int flags) {
-  asylo::BridgeMsghdrWrapper tmp_wrapper(msg);
-  if (!tmp_wrapper.CopyAllBuffers()) {
-    // CopyAllBuffers sets the ocall status on failure.
-    errno = EFAULT;
-    return -1;
-  }
-
-  return enc_untrusted_sendmsg(host_fd_, tmp_wrapper.get_msg(), flags);
+  return enc_untrusted_sendmsg(host_fd_, msg, flags);
 }
 
 ssize_t IOContextNative::RecvMsg(struct msghdr *msg, int flags) {
-  asylo::BridgeMsghdrWrapper tmp_wrapper(msg);
-  if (!tmp_wrapper.CopyAllBuffers()) {
-    // CopyAllBuffers sets the ocall status on failure.
-    errno = EFAULT;
-    return -1;
-  }
-  return enc_untrusted_recvmsg(host_fd_, msg, tmp_wrapper.get_msg(), flags);
+  return enc_untrusted_recvmsg(host_fd_, msg, flags);
 }
 
 int IOContextNative::GetSockName(struct sockaddr *addr, socklen_t *addrlen) {
@@ -260,6 +240,11 @@ int NativePathHandler::LStat(const char *pathname, struct stat *stat_buffer) {
   return enc_untrusted_lstat(pathname, stat_buffer);
 }
 
+int NativePathHandler::StatFs(const char *pathname,
+                              struct statfs *statfs_buffer) {
+  return enc_untrusted_statfs(pathname, statfs_buffer);
+}
+
 int NativePathHandler::Mkdir(const char *path, mode_t mode) {
   return enc_untrusted_mkdir(path, mode);
 }
@@ -288,6 +273,18 @@ int NativePathHandler::Utime(const char *filename,
 int NativePathHandler::Utimes(const char *filename,
                               const struct timeval times[2]) {
   return enc_untrusted_utimes(filename, times);
+}
+
+int NativePathHandler::InotifyAddWatch(
+    std::shared_ptr<IOManager::IOContext> context, const char *pathname,
+    uint32_t mask) {
+  auto inotify_context = std::dynamic_pointer_cast<IOContextInotify>(context);
+  if (inotify_context) {
+    return context->InotifyAddWatch(pathname, mask);
+  } else {
+    errno = EACCES;
+    return -1;
+  }
 }
 
 }  // namespace io

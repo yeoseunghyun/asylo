@@ -26,11 +26,13 @@
 #include "absl/memory/memory.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_join.h"
-#include "asylo/identity/sgx/attributes.pb.h"
-#include "asylo/identity/sgx/miscselect.pb.h"
-#include "asylo/identity/sgx/secs_attributes.h"
-#include "asylo/identity/sgx/secs_miscselect.h"
-#include "asylo/identity/util/sha256_hash.pb.h"
+#include "absl/strings/string_view.h"
+#include "asylo/crypto/sha256_hash.pb.h"
+#include "asylo/identity/platform/sgx/attributes.pb.h"
+#include "asylo/identity/platform/sgx/attributes_util.h"
+#include "asylo/identity/platform/sgx/machine_configuration.pb.h"
+#include "asylo/identity/platform/sgx/miscselect.pb.h"
+#include "asylo/identity/platform/sgx/miscselect_util.h"
 
 namespace asylo {
 namespace sgx {
@@ -38,11 +40,20 @@ namespace {
 
 using google::protobuf::TextFormat;
 
+void PrintAttributes(const Attributes &attributes,
+                     TextFormat::BaseTextGenerator *generator) {
+  generator->PrintLiteral("[");
+  generator->PrintString(
+      absl::StrJoin(GetPrintableAttributeList(attributes), ", "));
+  generator->PrintLiteral("]");
+}
+
 // A FieldValuePrinter that prints a bytes field in hex.
 class BytesPrinter : public TextFormat::FastFieldValuePrinter {
  public:
   void PrintBytes(const std::string &value,
                   TextFormat::BaseTextGenerator *generator) const override {
+    generator->PrintLiteral("0x");
     generator->PrintString(absl::BytesToHexString(value));
   }
 };
@@ -56,14 +67,7 @@ class AttributesFlagsPrinter : public TextFormat::FastFieldValuePrinter {
     Attributes attributes;
     attributes.set_flags(value);
     attributes.set_xfrm(0);
-
-    generator->PrintLiteral("[");
-
-    std::vector<std::string> printable_attributes;
-    GetPrintableAttributeList(attributes, &printable_attributes);
-    generator->PrintString(absl::StrJoin(printable_attributes, ", "));
-
-    generator->PrintLiteral("]");
+    PrintAttributes(attributes, generator);
   }
 };
 
@@ -76,14 +80,7 @@ class AttributesXfrmPrinter : public TextFormat::FastFieldValuePrinter {
     Attributes attributes;
     attributes.set_flags(0);
     attributes.set_xfrm(value);
-
-    generator->PrintLiteral("[");
-
-    std::vector<std::string> printable_attributes;
-    GetPrintableAttributeList(attributes, &printable_attributes);
-    generator->PrintString(absl::StrJoin(printable_attributes, ", "));
-
-    generator->PrintLiteral("]");
+    PrintAttributes(attributes, generator);
   }
 };
 
@@ -93,13 +90,10 @@ class MiscSelectPrinter : public TextFormat::FastFieldValuePrinter {
  public:
   void PrintUInt32(uint32_t value,
                    TextFormat::BaseTextGenerator *generator) const override {
-    generator->PrintLiteral("[");
-
-    std::vector<std::string> printable_misc_select =
-        GetPrintableMiscselectList(value);
-    generator->PrintString(absl::StrJoin(printable_misc_select, ", "));
-
-    generator->PrintLiteral("]");
+  generator->PrintLiteral("[");
+  generator->PrintString(
+      absl::StrJoin(GetPrintableMiscselectList(value), ", "));
+  generator->PrintLiteral("]");
   }
 };
 
@@ -136,6 +130,11 @@ std::unique_ptr<TextFormat::Printer> CreateSgxProtoPrinter() {
   printer->RegisterFieldValuePrinter(
       descriptor->FindFieldByName("miscselect_match_mask"),
                                      new MiscSelectPrinter());
+
+  // Print CPUSVN as a hex string rather than raw bytes.
+  descriptor = CpuSvn::descriptor();
+  printer->RegisterFieldValuePrinter(descriptor->FindFieldByName("value"),
+                                     new BytesPrinter());
 
   return printer;
 }

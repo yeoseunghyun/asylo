@@ -19,23 +19,26 @@
 #include "asylo/identity/sgx/sgx_local_assertion_verifier.h"
 
 #include <cstdint>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include <google/protobuf/util/message_differencer.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/string_view.h"
 #include "asylo/crypto/sha256_hash.h"
 #include "asylo/crypto/util/trivial_object_util.h"
+#include "asylo/identity/attestation/enclave_assertion_verifier.h"
 #include "asylo/identity/enclave_assertion_authority.h"
-#include "asylo/identity/enclave_assertion_verifier.h"
 #include "asylo/identity/identity.pb.h"
+#include "asylo/identity/platform/sgx/sgx_identity.pb.h"
 #include "asylo/identity/sgx/code_identity_constants.h"
-#include "asylo/identity/sgx/code_identity_util.h"
 #include "asylo/identity/sgx/hardware_interface.h"
 #include "asylo/identity/sgx/identity_key_management_structs.h"
 #include "asylo/identity/sgx/local_assertion.pb.h"
+#include "asylo/identity/sgx/proto_format.h"
 #include "asylo/identity/sgx/self_identity.h"
+#include "asylo/identity/sgx/sgx_identity_util_internal.h"
 #include "asylo/identity/sgx/sgx_local_assertion_authority_config.pb.h"
 #include "asylo/test/util/proto_matchers.h"
 #include "asylo/test/util/status_matchers.h"
@@ -100,6 +103,8 @@ class SgxLocalAssertionVerifierTest : public ::testing::Test {
 
   // The config used to initialize a SgxLocalAssertionVerifier.
   std::string config_;
+  std::unique_ptr<sgx::HardwareInterface> hardware_ =
+      sgx::HardwareInterface::CreateDefault();
 };
 
 // Verify that the SgxLocalAssertionVerifier can be found in the
@@ -304,12 +309,12 @@ TEST_F(SgxLocalAssertionVerifierTest, VerifyFailsIfReportIsUnverifiable) {
   sgx::AlignedTargetinfoPtr targetinfo;
   *targetinfo = TrivialZeroObject<sgx::Targetinfo>();
 
-  sgx::AlignedReportPtr report;
-  ASYLO_ASSERT_OK(
-      sgx::GetHardwareReport(*targetinfo, *reportdata, report.get()));
+  sgx::Report report;
+  ASYLO_ASSERT_OK_AND_ASSIGN(report,
+                             hardware_->GetReport(*targetinfo, *reportdata));
   sgx::LocalAssertion local_assertion;
-  local_assertion.set_report(reinterpret_cast<const char *>(report.get()),
-                             sizeof(*report));
+  local_assertion.set_report(reinterpret_cast<const char *>(&report),
+                             sizeof(report));
   ASSERT_TRUE(local_assertion.SerializeToString(assertion.mutable_assertion()));
 
   EnclaveIdentity identity;
@@ -334,12 +339,12 @@ TEST_F(SgxLocalAssertionVerifierTest,
   sgx::AlignedTargetinfoPtr targetinfo;
   sgx::SetTargetinfoFromSelfIdentity(targetinfo.get());
 
-  sgx::AlignedReportPtr report;
-  ASYLO_ASSERT_OK(
-      sgx::GetHardwareReport(*targetinfo, *reportdata, report.get()));
+  sgx::Report report;
+  ASYLO_ASSERT_OK_AND_ASSIGN(report,
+                             hardware_->GetReport(*targetinfo, *reportdata));
   sgx::LocalAssertion local_assertion;
-  local_assertion.set_report(reinterpret_cast<const char *>(report.get()),
-                             sizeof(*report));
+  local_assertion.set_report(reinterpret_cast<const char *>(&report),
+                             sizeof(report));
   ASSERT_TRUE(local_assertion.SerializeToString(assertion.mutable_assertion()));
 
   EnclaveIdentity identity;
@@ -347,7 +352,7 @@ TEST_F(SgxLocalAssertionVerifierTest,
 }
 
 // Verify that Verify() succeeds when given a valid Assertion, and correctly
-// extracts the enclave's CodeIdentity.
+// extracts the enclave's SgxIdentity.
 TEST_F(SgxLocalAssertionVerifierTest, VerifySuccess) {
   SgxLocalAssertionVerifier verifier;
   ASYLO_ASSERT_OK(verifier.Initialize(config_));
@@ -366,12 +371,12 @@ TEST_F(SgxLocalAssertionVerifierTest, VerifySuccess) {
   sgx::AlignedTargetinfoPtr targetinfo;
   sgx::SetTargetinfoFromSelfIdentity(targetinfo.get());
 
-  sgx::AlignedReportPtr report;
-  ASYLO_ASSERT_OK(
-      sgx::GetHardwareReport(*targetinfo, *reportdata, report.get()));
+  sgx::Report report;
+  ASYLO_ASSERT_OK_AND_ASSIGN(report,
+                             hardware_->GetReport(*targetinfo, *reportdata));
   sgx::LocalAssertion local_assertion;
-  local_assertion.set_report(reinterpret_cast<const char *>(report.get()),
-                             sizeof(*report));
+  local_assertion.set_report(reinterpret_cast<const char *>(&report),
+                             sizeof(report));
   ASSERT_TRUE(local_assertion.SerializeToString(assertion.mutable_assertion()));
 
   EnclaveIdentity identity;
@@ -381,14 +386,15 @@ TEST_F(SgxLocalAssertionVerifierTest, VerifySuccess) {
   EXPECT_EQ(description.identity_type(), CODE_IDENTITY);
   EXPECT_EQ(description.authority_type(), sgx::kSgxAuthorizationAuthority);
 
-  sgx::CodeIdentity code_identity;
-  ASSERT_TRUE(code_identity.ParseFromString(identity.identity()));
+  SgxIdentity sgx_identity;
+  ASYLO_ASSERT_OK(sgx::ParseSgxIdentity(identity, &sgx_identity));
 
-  sgx::CodeIdentity expected_identity = sgx::GetSelfIdentity()->identity;
-  EXPECT_THAT(code_identity, EqualsProto(expected_identity))
+  // Verify that the extracted SGX identity matches the generator's identity.
+  EXPECT_THAT(sgx_identity, EqualsProto(sgx::GetSelfIdentity()->sgx_identity))
       << "Extracted identity:\n"
-      << code_identity.DebugString() << "\nExpected identity:\n"
-      << expected_identity.DebugString();
+      << sgx::FormatProto(sgx_identity)
+      << "\nExpected identity:\n"
+      << sgx::FormatProto(sgx::GetSelfIdentity()->sgx_identity);
 }
 
 }  // namespace

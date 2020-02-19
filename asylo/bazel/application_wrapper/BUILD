@@ -16,20 +16,24 @@
 
 load(
     "//asylo/bazel:asylo.bzl",
-    "ASYLO_ALL_BACKENDS",
+    "ASYLO_ALL_BACKEND_TAGS",
     "cc_enclave_binary",
     "cc_test",
-    "copy_from_host",
+)
+load("//asylo/bazel:asylo_copy_from_host.bzl", "copy_from_host")
+load(
+    "//asylo/bazel:sgx_rules.bzl",
+    "sgx_cc_unsigned_enclave",
+    "sgx_debug_sign_enclave",
     "sgx_enclave_test",
 )
 load("//asylo/bazel:copts.bzl", "ASYLO_DEFAULT_COPTS")
-load(
-    "@linux_sgx//:sgx_sdk.bzl",
-    "sgx_enclave",
-    "sgx_enclave_configuration",
-)
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@linux_sgx//:sgx_sdk.bzl", "sgx")
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 
-licenses(["notice"])  # Apache v2.0
+licenses(["notice"])
 
 # Build targets for the whole-application wrapper and its tests.
 
@@ -63,7 +67,7 @@ cc_library(
     name = "application_wrapper_enclave_core",
     srcs = ["application_wrapper_enclave.cc"],
     copts = ASYLO_DEFAULT_COPTS,
-    tags = ASYLO_ALL_BACKENDS,
+    tags = ASYLO_ALL_BACKEND_TAGS,
     visibility = ["//visibility:public"],
     deps = [
         ":application_wrapper_cc_proto",
@@ -73,6 +77,7 @@ cc_library(
         "//asylo/util:status",
         "@com_google_absl//absl/strings",
     ],
+    alwayslink = 1,
 )
 
 # The core logic of the whole-application wrapper's driver.
@@ -90,7 +95,6 @@ cc_library(
         "//asylo/util:logging",
         "//asylo/util:status",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -146,21 +150,27 @@ cc_library(
 
 # An SGX enclave configuration with a TCS number high enough for the
 # multi-threaded entry test.
-sgx_enclave_configuration(
+sgx.enclave_configuration(
     name = "application_wrapper_enclave_test_configuration",
     tcs_num = "300",
 )
 
 # An application enclave wrapping :test_application.
-sgx_enclave(
-    name = "application_wrapper_enclave_test_enclave.so",
+sgx_cc_unsigned_enclave(
+    name = "application_wrapper_enclave_test_enclave_unsigned.so",
     testonly = 1,
-    config = ":application_wrapper_enclave_test_configuration",
     copts = ASYLO_DEFAULT_COPTS,
     deps = [
         ":application_wrapper_enclave_core",
         ":test_application_library",
     ],
+)
+
+sgx_debug_sign_enclave(
+    name = "application_wrapper_enclave_test_enclave.so",
+    testonly = 1,
+    config = ":application_wrapper_enclave_test_configuration",
+    unsigned = "application_wrapper_enclave_test_enclave_unsigned.so",
 )
 
 # A test of ApplicationWrapperEnclave.
@@ -178,6 +188,7 @@ sgx_enclave_test(
         ":argv",
         "//asylo:enclave_cc_proto",
         "//asylo:enclave_client",
+        "//asylo/platform/primitives/sgx:loader_cc_proto",
         "//asylo/test/util:status_matchers",
         "//asylo/test/util:test_main",
         "//asylo/util:fd_utils",
@@ -222,6 +233,7 @@ cc_library(
 # A test application.
 cc_binary(
     name = "test_application",
+    testonly = 1,
     srcs = ["test_application.cc"],
     copts = ASYLO_DEFAULT_COPTS,
     deps = ["//asylo/util:logging"],
@@ -230,6 +242,7 @@ cc_binary(
 # A test enclave-wrapped application.
 cc_enclave_binary(
     name = "test_enclave_application",
+    testonly = 1,
     srcs = ["test_application.cc"],
     application_enclave_config = ":test_config",
     copts = ASYLO_DEFAULT_COPTS,
@@ -250,7 +263,9 @@ sh_test(
         ":test_host_application",
     ],
     tags = [
-        "asylo-sgx",
+        "asylo-cfh",
+        "asylo-sgx-hw",
+        "asylo-sgx-sim",
         "enclave_test",
     ],
     deps = ["//asylo/test/util:shell_testing"],

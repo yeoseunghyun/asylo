@@ -21,11 +21,12 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "asylo/grpc/auth/core/assertion_description.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "asylo/util/logging.h"
 #include "asylo/grpc/auth/core/enclave_credentials.h"
 #include "asylo/grpc/auth/core/enclave_grpc_security_constants.h"
 #include "asylo/grpc/auth/core/enclave_transport_security.h"
-#include "asylo/grpc/auth/util/safe_string.h"
 #include "include/grpc/support/alloc.h"
 #include "include/grpc/support/log.h"
 #include "include/grpc/support/string_util.h"
@@ -116,7 +117,7 @@ void enclave_security_connector_check_peer(
         "Failed to get enclave auth context from TSI peer");
   }
 
-  GRPC_CLOSURE_SCHED(on_peer_checked, error);
+  grpc_core::ExecCtx::Run(DEBUG_LOCATION, on_peer_checked, error);
 }
 
 /* -- Enclave security connector implementation. -- */
@@ -144,7 +145,8 @@ class grpc_enclave_channel_security_connector final
                                           on_peer_checked);
   }
 
-  bool check_call_host(const char *host, grpc_auth_context *auth_context,
+  bool check_call_host(grpc_core::StringView host,
+                       grpc_auth_context *auth_context,
                        grpc_closure *on_call_host_checked,
                        grpc_error **error) override {
     return true;
@@ -160,16 +162,17 @@ class grpc_enclave_channel_security_connector final
   }
 
   void add_handshakers(
+      const grpc_channel_args* args,
       grpc_pollset_set *interested_parties,
       grpc_handshake_manager *handshake_mgr) override {
     tsi_handshaker *tsi_handshaker = nullptr;
     grpc_enclave_channel_credentials *channel_creds =
-        static_cast<grpc_enclave_channel_credentials *>(
-            this->mutable_channel_creds());
+        CHECK_NOTNULL(dynamic_cast<grpc_enclave_channel_credentials *>(
+            this->mutable_channel_creds()));
     tsi_result result = tsi_enclave_handshaker_create(
-        /*is_client=*/true, channel_creds->mutable_self_assertions(),
-        channel_creds->mutable_accepted_peer_assertions(),
-        channel_creds->mutable_additional_authenticated_data(),
+        /*is_client=*/true, absl::MakeSpan(channel_creds->self_assertions),
+        absl::MakeSpan(channel_creds->accepted_peer_assertions),
+        channel_creds->additional_authenticated_data, channel_creds->peer_acl,
         &tsi_handshaker);
     if (result != TSI_OK) {
       gpr_log(GPR_ERROR, "Enclave handshaker creation failed with error %s.",
@@ -178,7 +181,8 @@ class grpc_enclave_channel_security_connector final
     }
 
     grpc_handshake_manager_add(
-        handshake_mgr, grpc_security_handshaker_create(tsi_handshaker, this));
+        handshake_mgr, grpc_security_handshaker_create(tsi_handshaker, this,
+                                                       args));
   }
 
  private:
@@ -207,16 +211,18 @@ class grpc_enclave_server_security_connector final
   }
 
   void add_handshakers(
+      const grpc_channel_args* args,
       grpc_pollset_set *interested_parties,
       grpc_handshake_manager *handshake_mgr) override {
     tsi_handshaker *tsi_handshaker = nullptr;
     grpc_enclave_server_credentials *server_creds =
-        static_cast<grpc_enclave_server_credentials *>(
-            this->mutable_server_creds());
+        CHECK_NOTNULL(dynamic_cast<grpc_enclave_server_credentials *>(
+            this->mutable_server_creds()));
     tsi_result result = tsi_enclave_handshaker_create(
-        /*is_client=*/false, server_creds->mutable_self_assertions(),
-        server_creds->mutable_accepted_peer_assertions(),
-        server_creds->mutable_additional_authenticated_data(), &tsi_handshaker);
+        /*is_client=*/false, absl::MakeSpan(server_creds->self_assertions),
+        absl::MakeSpan(server_creds->accepted_peer_assertions),
+        server_creds->additional_authenticated_data, server_creds->peer_acl,
+        &tsi_handshaker);
     if (result != TSI_OK) {
       gpr_log(GPR_ERROR, "Enclave handshaker creation failed with error %s.",
               tsi_result_to_string(result));
@@ -224,7 +230,8 @@ class grpc_enclave_server_security_connector final
     }
 
     grpc_handshake_manager_add(
-        handshake_mgr, grpc_security_handshaker_create(tsi_handshaker, this));
+        handshake_mgr, grpc_security_handshaker_create(tsi_handshaker, this,
+                                                       args));
   }
 };
 

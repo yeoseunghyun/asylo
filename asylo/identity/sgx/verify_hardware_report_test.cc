@@ -19,9 +19,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "asylo/crypto/util/trivial_object_util.h"
-#include "asylo/identity/sgx/code_identity_util.h"
 #include "asylo/identity/sgx/hardware_interface.h"
 #include "asylo/identity/sgx/identity_key_management_structs.h"
+#include "asylo/identity/sgx/sgx_identity_util_internal.h"
 #include "asylo/test/util/status_matchers.h"
 
 namespace asylo {
@@ -39,9 +39,11 @@ TEST(VerifyHardwareReportTest, VerifyHardwareReportSucceedsWhenTargetIsSelf) {
   AlignedReportdataPtr reportdata;
   reportdata->data = TrivialRandomObject<UnsafeBytes<kReportdataSize>>();
 
-  AlignedReportPtr report;
-  ASYLO_ASSERT_OK(GetHardwareReport(*targetinfo, *reportdata, report.get()));
-  ASYLO_ASSERT_OK(VerifyHardwareReport(*report));
+  Report report;
+  ASYLO_ASSERT_OK_AND_ASSIGN(
+      report,
+      HardwareInterface::CreateDefault()->GetReport(*targetinfo, *reportdata));
+  ASYLO_ASSERT_OK(VerifyHardwareReport(report));
 }
 
 // Verify that VerifyHardwareReport() cannot verify a hardware report that is
@@ -53,9 +55,11 @@ TEST(VerifyHardwareReportTest, VerifyHardwareReportFailsWhenTargetIsNotSelf) {
   AlignedReportdataPtr reportdata;
   reportdata->data = TrivialRandomObject<UnsafeBytes<kReportdataSize>>();
 
-  AlignedReportPtr report;
-  ASYLO_ASSERT_OK(GetHardwareReport(*targetinfo, *reportdata, report.get()));
-  ASSERT_THAT(VerifyHardwareReport(*report), Not(IsOk()));
+  Report report;
+  ASYLO_ASSERT_OK_AND_ASSIGN(
+      report,
+      HardwareInterface::CreateDefault()->GetReport(*targetinfo, *reportdata));
+  ASSERT_THAT(VerifyHardwareReport(report), Not(IsOk()));
 }
 
 }  // namespace

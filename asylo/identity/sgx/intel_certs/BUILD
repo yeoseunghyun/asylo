@@ -14,13 +14,39 @@
 # limitations under the License.
 #
 
-licenses(["notice"])
-
 # This package contains constants for Intel SGX ECDSA PKI certificates.
+
+load("//asylo/bazel:copts.bzl", "ASYLO_DEFAULT_COPTS")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load(
+    "//asylo/bazel:asylo.bzl",
+    cc_test = "cc_test_and_cc_enclave_test",
+)
+
+licenses(["notice"])
 
 cc_library(
     name = "intel_sgx_root_ca_cert",
     srcs = ["intel_sgx_root_ca_cert.cc"],
     hdrs = ["intel_sgx_root_ca_cert.h"],
+    copts = ASYLO_DEFAULT_COPTS,
     visibility = ["//asylo:implementation"],
+    deps = [
+        "//asylo/crypto:certificate_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "intel_sgx_root_ca_cert_test",
+    srcs = ["intel_sgx_root_ca_cert_test.cc"],
+    copts = ASYLO_DEFAULT_COPTS,
+    deps = [
+        ":intel_sgx_root_ca_cert",
+        "//asylo/crypto:asn1",
+        "//asylo/crypto:certificate_cc_proto",
+        "//asylo/crypto:x509_certificate",
+        "//asylo/test/util:status_matchers",
+        "//asylo/test/util:test_main",
+        "@com_google_googletest//:gtest",
+    ],
 )

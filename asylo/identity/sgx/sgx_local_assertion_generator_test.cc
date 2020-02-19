@@ -18,6 +18,7 @@
 
 #include "asylo/identity/sgx/sgx_local_assertion_generator.h"
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -29,21 +30,24 @@
 #include "asylo/crypto/sha256_hash.h"
 #include "asylo/crypto/util/bytes.h"
 #include "asylo/crypto/util/trivial_object_util.h"
+#include "asylo/identity/attestation/enclave_assertion_generator.h"
 #include "asylo/identity/enclave_assertion_authority.h"
-#include "asylo/identity/enclave_assertion_generator.h"
 #include "asylo/identity/identity.pb.h"
+#include "asylo/identity/platform/sgx/sgx_identity.pb.h"
 #include "asylo/identity/sgx/code_identity_constants.h"
-#include "asylo/identity/sgx/code_identity_util.h"
 #include "asylo/identity/sgx/identity_key_management_structs.h"
 #include "asylo/identity/sgx/local_assertion.pb.h"
 #include "asylo/identity/sgx/self_identity.h"
+#include "asylo/identity/sgx/sgx_identity_util_internal.h"
 #include "asylo/identity/sgx/sgx_local_assertion_authority_config.pb.h"
 #include "asylo/test/util/proto_matchers.h"
 #include "asylo/test/util/status_matchers.h"
+#include "asylo/util/thread.h"
 
 namespace asylo {
 namespace {
 
+using ::testing::Eq;
 using ::testing::Not;
 
 constexpr char kBadConfig[] = "Not a real config";
@@ -138,6 +142,27 @@ TEST_F(SgxLocalAssertionGeneratorTest, InitializeSucceedsOnce) {
   SgxLocalAssertionGenerator generator;
   EXPECT_THAT(generator.Initialize(config_), IsOk());
   EXPECT_THAT(generator.Initialize(config_), Not(IsOk()));
+}
+
+// Verify that Initialize() succeeds only once, even when called from multiple
+// threads.
+TEST_F(SgxLocalAssertionGeneratorTest,
+       InitializeSucceedsOnceFromMultipleThreads) {
+  constexpr int kNumThreads = 10;
+
+  SgxLocalAssertionGenerator generator;
+  std::atomic<int> num_initialize_successes(0);
+  std::vector<Thread> threads;
+  threads.reserve(kNumThreads);
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([this, &generator, &num_initialize_successes] {
+      num_initialize_successes += generator.Initialize(config_).ok() ? 1 : 0;
+    });
+  }
+  for (auto &thread : threads) {
+    thread.Join();
+  }
+  EXPECT_THAT(num_initialize_successes.load(), Eq(1));
 }
 
 // Verify that Initialize() fails if the authority config cannot be parsed.
@@ -380,17 +405,15 @@ TEST_F(SgxLocalAssertionGeneratorTest, GenerateSuccess) {
   std::vector<uint8_t> digest;
   ASSERT_THAT(hash.CumulativeHash(&digest), IsOk());
   expected_reportdata.replace(/*pos=*/0, digest);
-  EXPECT_EQ(report->reportdata.data, expected_reportdata);
+  EXPECT_EQ(report->body.reportdata.data, expected_reportdata);
 
   // Verify that the asserted identity is the self identity.
-  sgx::CodeIdentity code_identity;
-  ASSERT_THAT(sgx::ParseIdentityFromHardwareReport(*report, &code_identity),
-              IsOk());
+  SgxIdentity sgx_identity = ParseSgxIdentityFromHardwareReport(*report);
 
-  sgx::CodeIdentity expected_identity = sgx::GetSelfIdentity()->identity;
-  EXPECT_THAT(code_identity, EqualsProto(expected_identity))
+  SgxIdentity expected_identity = sgx::GetSelfIdentity()->sgx_identity;
+  EXPECT_THAT(sgx_identity, EqualsProto(expected_identity))
       << "Extracted identity:\n"
-      << code_identity.DebugString() << "\nExpected identity:\n"
+      << sgx_identity.DebugString() << "\nExpected identity:\n"
       << expected_identity.DebugString();
 }
 

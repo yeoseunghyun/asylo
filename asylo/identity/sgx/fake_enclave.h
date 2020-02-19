@@ -26,8 +26,8 @@
 #include "absl/base/attributes.h"
 #include "asylo/crypto/util/bytes.h"
 #include "asylo/crypto/util/trivial_object_util.h"
-#include "asylo/identity/sgx/code_identity.pb.h"
-#include "asylo/identity/sgx/hardware_interface.h"
+#include "asylo/identity/platform/sgx/architecture_bits.h"
+#include "asylo/identity/platform/sgx/sgx_identity.pb.h"
 #include "asylo/identity/sgx/identity_key_management_structs.h"
 #include "asylo/util/status.h"
 #include "asylo/util/statusor.h"
@@ -67,11 +67,11 @@ constexpr SecsAttributeSet kRequiredSealingAttributesMask = {0x3, 0x0};
 // pointer to the currently executing FakeEnclave by calling the
 // FakeEnclave::GetCurrentEnclave static method.
 //
-// The FakeEnclave class provides three public methods, GetHardwareRand64,
-// GetHardwareKey, and GetHardwareReport. These methods are utilized by the fake
-// hardware-interface implementation. Specifically, the fake hardware-interface
-// implementation in fake_hardware_interface.cc relies on the enclave pointer in
-// current_ to get enclave-specific hardware key and enclave-specific report.
+// The FakeEnclave class provides two public methods, GetHardwareKey and
+// GetHardwareReport. These methods are utilized by the fake hardware-interface
+// implementation. Specifically, the fake hardware-interface implementation in
+// fake_hardware_interface.cc relies on the enclave pointer in current_ to get
+// enclave-specific hardware key and enclave-specific report.
 //
 // None of the SGX identity libraries directly use the FakeEnclave
 // functionality. Those libraries instead utilize the hardware interface
@@ -147,20 +147,20 @@ class FakeEnclave {
   void set_valid_attributes(const SecsAttributeSet &value) {
     valid_attributes_ = value;
   }
-  void add_valid_attribute(SecsAttributeBit bit) {
-    valid_attributes_ |= MakeSecsAttributeSet({bit}).ValueOrDie();
+  void add_valid_attribute(AttributeBit bit) {
+    valid_attributes_ |= SecsAttributeSet::FromBits({bit}).ValueOrDie();
   }
-  void remove_valid_attribute(SecsAttributeBit bit) {
-    valid_attributes_ &= ~MakeSecsAttributeSet({bit}).ValueOrDie();
+  void remove_valid_attribute(AttributeBit bit) {
+    valid_attributes_ &= ~SecsAttributeSet::FromBits({bit}).ValueOrDie();
   }
   void set_required_attributes(const SecsAttributeSet &value) {
     required_attributes_ = value;
   }
-  void add_required_attribute(SecsAttributeBit bit) {
-    required_attributes_ |= MakeSecsAttributeSet({bit}).ValueOrDie();
+  void add_required_attribute(AttributeBit bit) {
+    required_attributes_ |= SecsAttributeSet::FromBits({bit}).ValueOrDie();
   }
-  void remove_required_attribute(SecsAttributeBit bit) {
-    required_attributes_ &= ~MakeSecsAttributeSet({bit}).ValueOrDie();
+  void remove_required_attribute(AttributeBit bit) {
+    required_attributes_ &= ~SecsAttributeSet::FromBits({bit}).ValueOrDie();
   }
 
   // Accessors
@@ -208,20 +208,17 @@ class FakeEnclave {
   void SetRandomIdentity();
 
   // Initializes data members that represent the enclave's identity according to
-  // the |identity|. Does not perform any consistency checks on |identity|.
-  void SetIdentity(const CodeIdentity &identity);
+  // the |sgx_identity|. Does not perform any consistency checks.
+  void SetIdentity(const SgxIdentity &sgx_identity);
 
-  // Gets a CodeIdentity representation of this enclave's identity.
-  StatusOr<CodeIdentity> GetIdentity() const;
+  // Gets an SgxIdentity representation of this enclave's identity.
+  SgxIdentity GetIdentity() const;
 
   // Equality operator--only needed for testing purposes.
   bool operator==(const FakeEnclave &other) const;
 
   // Equality operator--only needed for testing purposes.
   bool operator!=(const FakeEnclave &other) const;
-
-  // Fake implementation of RdRand64.
-  static Status GetHardwareRand64(uint64_t *value);
 
   // Fake implementation of the SGX EGETKEY instruction.
   Status GetHardwareKey(const Keyrequest &request, HardwareKey *key) const;

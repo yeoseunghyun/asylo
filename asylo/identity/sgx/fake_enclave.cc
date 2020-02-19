@@ -26,16 +26,18 @@
 #include <iostream>
 #include <vector>
 
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_join.h"
+#include "asylo/crypto/sha256_hash.pb.h"
 #include "asylo/crypto/util/bssl_util.h"
 #include "asylo/crypto/util/bytes.h"
 #include "asylo/crypto/util/trivial_object_util.h"
 #include "asylo/util/logging.h"
-#include "asylo/identity/sgx/attributes.pb.h"
+#include "asylo/identity/platform/sgx/architecture_bits.h"
+#include "asylo/identity/platform/sgx/attributes.pb.h"
+#include "asylo/identity/platform/sgx/machine_configuration.pb.h"
 #include "asylo/identity/sgx/proto_format.h"
 #include "asylo/identity/sgx/secs_attributes.h"
-#include "asylo/identity/sgx/secs_miscselect.h"
-#include "asylo/identity/util/sha256_hash.pb.h"
 #include "asylo/platform/primitives/sgx/sgx_error_space.h"
 
 namespace asylo {
@@ -57,11 +59,7 @@ constexpr char kHardcodedPkcs15PaddingHex[] =
     "003031300D060960864801650304020105000420";
 
 std::string FormatAttributeSet(const SecsAttributeSet &set) {
-  Attributes attributes;
-  // The following variant of ConvertSecsAttributeRepresentation() never fails,
-  // so the return value is ignored.
-  ConvertSecsAttributeRepresentation(set, &attributes);
-  return FormatProto(attributes);
+  return FormatProto(set.ToProtoAttributes());
 }
 
 }  // namespace
@@ -69,9 +67,9 @@ std::string FormatAttributeSet(const SecsAttributeSet &set) {
 FakeEnclave *FakeEnclave::current_ = nullptr;
 
 FakeEnclave::FakeEnclave() {
-  GetAllSecsAttributes(&valid_attributes_);
-  remove_valid_attribute(SecsAttributeBit::KSS);
-  GetMustBeSetSecsAttributes(&required_attributes_);
+  valid_attributes_ = SecsAttributeSet::GetAllSupportedBits();
+  remove_valid_attribute(AttributeBit::KSS);
+  required_attributes_ = SecsAttributeSet::GetMustBeSetBits();
   mrenclave_.fill(0);
   mrsigner_.fill(0);
   isvprodid_ = 0;
@@ -123,11 +121,11 @@ void FakeEnclave::SetRandomIdentity() {
   set_attributes(TrivialRandomObject<SecsAttributeSet>());
 
   // All bits of MISCSELECT, except for bit 0, must be zero.
-  miscselect_ = TrivialRandomObject<uint32_t>() & kMiscselectAllBits;
+  miscselect_ = TrivialRandomObject<uint32_t>() & kValidMiscselectBitmask;
 
   // If ATTRIBUTES.KSS is zero, all KSS-related fields must be zero, else they
   // should be set randomly.
-  if (!TestAttribute(SecsAttributeBit::KSS, attributes_)) {
+  if (!attributes_.IsSet(AttributeBit::KSS)) {
     configsvn_ = 0;
     isvextprodid_.fill(0);
     isvfamilyid_.fill(0);
@@ -140,16 +138,29 @@ void FakeEnclave::SetRandomIdentity() {
   }
 }
 
-void FakeEnclave::SetIdentity(const CodeIdentity &identity) {
-  mrenclave_.assign(identity.mrenclave().hash());
-  mrsigner_.assign(identity.signer_assigned_identity().mrsigner().hash());
+void FakeEnclave::SetIdentity(const SgxIdentity &sgx_identity) {
+  const CodeIdentity &identity = sgx_identity.code_identity();
+  const MachineConfiguration &machine_config =
+      sgx_identity.machine_configuration();
+
+  if (!SetTrivialObjectFromBinaryString<UnsafeBytes<SHA256_DIGEST_LENGTH>>(
+           identity.mrenclave().hash(), &mrenclave_)
+           .ok()) {
+    LOG(FATAL) << "MRENCLAVE from SgxIdentity is invalid: "
+               << absl::BytesToHexString(identity.mrenclave().hash());
+  }
+  if (!SetTrivialObjectFromBinaryString<UnsafeBytes<SHA256_DIGEST_LENGTH>>(
+           identity.signer_assigned_identity().mrsigner().hash(), &mrsigner_)
+           .ok()) {
+    LOG(FATAL) << "MRSIGNER from SgxIdentity is invalid: "
+               << absl::BytesToHexString(
+                      identity.signer_assigned_identity().mrsigner().hash());
+  }
+
   isvprodid_ = identity.signer_assigned_identity().isvprodid();
   isvsvn_ = identity.signer_assigned_identity().isvsvn();
 
-  if (!ConvertSecsAttributeRepresentation(identity.attributes(),
-                                          &attributes_)) {
-    LOG(FATAL) << "Error while reading attributes from identity.";
-  }
+  attributes_ = SecsAttributeSet(identity.attributes());
   if ((attributes_ & valid_attributes_) != attributes_) {
     LOG(FATAL) << "Identity contains illegal attributes. "
                << "Identity Attributes: " << FormatAttributeSet(attributes_)
@@ -163,31 +174,39 @@ void FakeEnclave::SetIdentity(const CodeIdentity &identity) {
                << FormatAttributeSet(required_attributes_);
   }
   miscselect_ = identity.miscselect();
+  if (!SetTrivialObjectFromBinaryString<UnsafeBytes<kCpusvnSize>>(
+           machine_config.cpu_svn().value(), &cpusvn_)
+           .ok()) {
+    LOG(FATAL) << "CPUSVN from SgxIdentity is invalid: "
+               << absl::BytesToHexString(machine_config.cpu_svn().value());
+  }
 }
 
-StatusOr<CodeIdentity> FakeEnclave::GetIdentity() const {
-  CodeIdentity code_identity;
+SgxIdentity FakeEnclave::GetIdentity() const {
+  SgxIdentity sgx_identity;
+  CodeIdentity *code_identity = sgx_identity.mutable_code_identity();
 
 
-  if (!ConvertSecsAttributeRepresentation(attributes_,
-                                          code_identity.mutable_attributes())) {
-    return Status(error::GoogleError::INTERNAL,
-                  "Failed to convert attributes representation");
-  }
+  *code_identity->mutable_attributes() = attributes_.ToProtoAttributes();
 
-  code_identity.mutable_mrenclave()->set_hash(
+  code_identity->mutable_mrenclave()->set_hash(
       ConvertTrivialObjectToBinaryString(mrenclave_));
 
   SignerAssignedIdentity *signer_assigned_identity =
-      code_identity.mutable_signer_assigned_identity();
+      code_identity->mutable_signer_assigned_identity();
   signer_assigned_identity->mutable_mrsigner()->set_hash(
       ConvertTrivialObjectToBinaryString(mrsigner_));
   signer_assigned_identity->set_isvprodid(isvprodid_);
   signer_assigned_identity->set_isvsvn(isvsvn_);
 
-  code_identity.set_miscselect(miscselect_);
+  code_identity->set_miscselect(miscselect_);
 
-  return code_identity;
+  MachineConfiguration *machine_config =
+      sgx_identity.mutable_machine_configuration();
+  machine_config->mutable_cpu_svn()->set_value(
+      ConvertTrivialObjectToBinaryString(cpusvn_));
+
+  return sgx_identity;
 }
 
 bool FakeEnclave::operator==(const FakeEnclave &other) const {
@@ -202,11 +221,6 @@ bool FakeEnclave::operator==(const FakeEnclave &other) const {
 
 bool FakeEnclave::operator!=(const FakeEnclave &other) const {
   return !(*this == other);
-}
-
-Status FakeEnclave::GetHardwareRand64(uint64_t *value) {
-  RAND_bytes(reinterpret_cast<uint8_t *>(value), sizeof(*value));
-  return Status::OkStatus();
 }
 
 Status FakeEnclave::GetHardwareKey(const Keyrequest &request,
@@ -233,7 +247,7 @@ Status FakeEnclave::GetHardwareKey(const Keyrequest &request,
   // any of its KSS-related bits are set when the enclave's KSS SECS attribute
   // bit is not set.
   if ((request.keypolicy & kKeypolicyReservedBits) != 0 ||
-      (!TestAttribute(SecsAttributeBit::KSS, attributes_) &&
+      (!attributes_.IsSet(AttributeBit::KSS) &&
        (request.keypolicy & kKeypolicyKssBits) != 0)) {
     LOG(FATAL) << "Input parameter KEYPOLICY is not valid.";
   }
@@ -321,7 +335,7 @@ Status FakeEnclave::GetHardwareKey(const Keyrequest &request,
       dependencies->isvsvn = 0;
       dependencies->ownerepoch = ownerepoch_;
       dependencies->attributes = attributes_;
-      ClearSecsAttributeSet(&dependencies->attributemask);
+      dependencies->attributemask.Clear();
       dependencies->mrenclave = mrenclave_;
       dependencies->mrsigner.fill(0);
       dependencies->keyid = request.keyid;
@@ -362,34 +376,32 @@ Status FakeEnclave::GetHardwareReport(const Targetinfo &tinfo,
   // if these fields are not zero. Lacking sufficient information,
   // this function invokes LOG(FATAL) to match the behavior of the
   // GetHardwareKey() function in such a scenario.
-  SecsAttributeSet all_attributes;
-  GetAllSecsAttributes(&all_attributes);
-  SecsAttributeSet reserved_attributes = ~all_attributes;
-  uint32_t misc_select_reserved_bits = ~kMiscselectAllBits;
+  SecsAttributeSet reserved_attributes =
+      ~SecsAttributeSet::GetAllSupportedBits();
   if (tinfo.reserved1 != TrivialZeroObject<decltype(tinfo.reserved1)>() ||
       tinfo.reserved2 != TrivialZeroObject<decltype(tinfo.reserved2)>() ||
-      (tinfo.miscselect & misc_select_reserved_bits) != 0 ||
+      (tinfo.miscselect & ~kValidMiscselectBitmask) != 0 ||
       (tinfo.attributes & reserved_attributes) !=
           TrivialZeroObject<SecsAttributeSet>()) {
     LOG(FATAL) << "Reserved fields/bits in input parameters are not zeroed.";
   }
 
-  report->cpusvn = cpusvn_;
-  report->miscselect = miscselect_;
-  report->reserved1.fill(0);
-  report->isvextprodid = isvextprodid_;
-  report->attributes = attributes_;
-  report->mrenclave = mrenclave_;
-  report->reserved2.fill(0);
-  report->mrsigner = mrsigner_;
-  report->reserved3.fill(0);
-  report->configid = configid_;
-  report->isvprodid = isvprodid_;
-  report->isvsvn = isvsvn_;
-  report->configsvn = configsvn_;
-  report->reserved4.fill(0);
-  report->isvfamilyid = isvfamilyid_;
-  report->reportdata = reportdata;
+  report->body.cpusvn = cpusvn_;
+  report->body.miscselect = miscselect_;
+  report->body.reserved1.fill(0);
+  report->body.isvextprodid = isvextprodid_;
+  report->body.attributes = attributes_;
+  report->body.mrenclave = mrenclave_;
+  report->body.reserved2.fill(0);
+  report->body.mrsigner = mrsigner_;
+  report->body.reserved3.fill(0);
+  report->body.configid = configid_;
+  report->body.isvprodid = isvprodid_;
+  report->body.isvsvn = isvsvn_;
+  report->body.configsvn = configsvn_;
+  report->body.reserved4.fill(0);
+  report->body.isvfamilyid = isvfamilyid_;
+  report->body.reportdata = reportdata;
   report->keyid = report_keyid_;
 
   // Prepare a KeyDependencies struct to generate the appropriate report key.
@@ -405,7 +417,7 @@ Status FakeEnclave::GetHardwareReport(const Targetinfo &tinfo,
   dependencies->isvsvn = 0;
   dependencies->ownerepoch = ownerepoch_;
   dependencies->attributes = tinfo.attributes;
-  ClearSecsAttributeSet(&dependencies->attributemask);
+  dependencies->attributemask.Clear();
   dependencies->mrenclave = tinfo.measurement;
   dependencies->mrsigner.fill(0);
   dependencies->keyid = report_keyid_;
@@ -432,8 +444,8 @@ Status FakeEnclave::GetHardwareReport(const Targetinfo &tinfo,
   }
 
   if (AES_CMAC(report->mac.data(), report_key.data(), report_key.size(),
-               reinterpret_cast<uint8_t *>(report),
-               offsetof(Report, keyid)) != 1) {
+               reinterpret_cast<uint8_t *>(&report->body),
+               sizeof(report->body)) != 1) {
     // Clear-out any leftover state from the output.
     report->mac.Cleanse();
     return Status(SGX_ERROR_UNEXPECTED, BsslLastErrorString());

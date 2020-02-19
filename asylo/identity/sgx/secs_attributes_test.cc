@@ -25,8 +25,10 @@
 #include <gtest/gtest.h>
 #include "absl/strings/str_cat.h"
 #include "asylo/crypto/util/trivial_object_util.h"
-#include "asylo/identity/sgx/attributes.pb.h"
+#include "asylo/identity/platform/sgx/architecture_bits.h"
+#include "asylo/identity/platform/sgx/attributes.pb.h"
 #include "asylo/test/util/status_matchers.h"
+#include "asylo/util/status.h"
 
 namespace asylo {
 namespace sgx {
@@ -42,31 +44,27 @@ class SecsAttributesTest : public ::testing::Test {
 
   // Independently define all the attribute bits so that any error
   // introduced in this part of the header file is caught.
-  const std::vector<SecsAttributeBit> attributes_ = {
-      static_cast<SecsAttributeBit>(0),  // FLAG_ATTRIBUTE_INIT
-      static_cast<SecsAttributeBit>(1),  // FLAG_ATTRIBUTE_DEBUG
-      static_cast<SecsAttributeBit>(2),  // FLAG_ATTRIBUTE_MODE64BIT
-                                         // Unused bit
-      static_cast<SecsAttributeBit>(4),  // FLAG_ATTRIBUTE_PROVISIONKEY
-      static_cast<SecsAttributeBit>(5),  // FLAG_ATTRIBUTE_INITTOKENKEY
-                                         // Unused bit
-      static_cast<SecsAttributeBit>(7),  // FLAG_ATTRIBUTE_KSS
+  const std::vector<AttributeBit> attributes_ = {
+      static_cast<AttributeBit>(0),  // FLAG_ATTRIBUTE_INIT
+      static_cast<AttributeBit>(1),  // FLAG_ATTRIBUTE_DEBUG
+      static_cast<AttributeBit>(2),  // FLAG_ATTRIBUTE_MODE64BIT
+                                     // Unused bit
+      static_cast<AttributeBit>(4),  // FLAG_ATTRIBUTE_PROVISIONKEY
+      static_cast<AttributeBit>(5),  // FLAG_ATTRIBUTE_INITTOKENKEY
+                                     // Unused bit
+      static_cast<AttributeBit>(7),  // FLAG_ATTRIBUTE_KSS
 
-      static_cast<SecsAttributeBit>(64),  // XFRM_ATTRIBUTE_FPU,
-      static_cast<SecsAttributeBit>(65),  // XFRM_ATTRIBUTE_SSE,
-      static_cast<SecsAttributeBit>(66),  // XFRM_ATTRIBUTE_AVX,
-      static_cast<SecsAttributeBit>(67),  // XFRM_ATTRIBUTE_BNDREG,
-      static_cast<SecsAttributeBit>(68),  // XFRM_ATTRIBUTE_BNDCSR,
-      static_cast<SecsAttributeBit>(69),  // XFRM_ATTRIBUTE_OPMASK,
-      static_cast<SecsAttributeBit>(70),  // XFRM_ATTRIBUTE_ZMM_HI256,
-      static_cast<SecsAttributeBit>(71),  // XFRM_ATTRIBUTE_HI16_ZMM,
-                                          // Unused bit
-      static_cast<SecsAttributeBit>(73)   // XFRM_ATTRIBUTE_PKRU
+      static_cast<AttributeBit>(64),  // XFRM_ATTRIBUTE_FPU,
+      static_cast<AttributeBit>(65),  // XFRM_ATTRIBUTE_SSE,
+      static_cast<AttributeBit>(66),  // XFRM_ATTRIBUTE_AVX,
+      static_cast<AttributeBit>(67),  // XFRM_ATTRIBUTE_BNDREG,
+      static_cast<AttributeBit>(68),  // XFRM_ATTRIBUTE_BNDCSR,
+      static_cast<AttributeBit>(69),  // XFRM_ATTRIBUTE_OPMASK,
+      static_cast<AttributeBit>(70),  // XFRM_ATTRIBUTE_ZMM_HI256,
+      static_cast<AttributeBit>(71),  // XFRM_ATTRIBUTE_HI16_ZMM,
+                                      // Unused bit
+      static_cast<AttributeBit>(73)   // XFRM_ATTRIBUTE_PKRU
   };
-  const std::vector<std::string> attribute_names_ = {
-      "INIT",   "DEBUG",  "MODE64BIT", "PROVISIONKEY", "INITTOKENKEY",
-      "KSS",    "FPU",    "SSE",       "AVX",          "BNDREG",
-      "BNDCSR", "OPMASK", "ZMM_HI256", "HI16_ZMM",     "PKRU"};
   const std::vector<SecsAttributeSet> attribute_sets_ = {
       {0x1, 0x0},   // INIT
       {0x2, 0x0},   // DEBUG
@@ -86,7 +84,7 @@ class SecsAttributesTest : public ::testing::Test {
       {0x0, 0x200},  // PKRU
   };
   const SecsAttributeSet all_attributes_ = {0xb7, 0x2FF};
-  const SecsAttributeBit bad_attribute_ = static_cast<SecsAttributeBit>(129);
+  const AttributeBit bad_attribute_ = static_cast<AttributeBit>(129);
 };
 
 #define EXPECT_LOG(TYPE, MESSAGE)
@@ -94,14 +92,14 @@ class SecsAttributesTest : public ::testing::Test {
 // Verify the correctness of ClearSecsAttributeSet.
 TEST_F(SecsAttributesTest, ClearSecsAttributeSet) {
   for (SecsAttributeSet set : attribute_sets_) {
-    ClearSecsAttributeSet(&set);
+    set.Clear();
     EXPECT_EQ(set.flags, 0);
     EXPECT_EQ(set.xfrm, 0);
   }
 
   SecsAttributeSet set;
   set = all_attributes_;
-  ClearSecsAttributeSet(&set);
+  set.Clear();
   EXPECT_EQ(set.flags, 0);
   EXPECT_EQ(set.xfrm, 0);
 }
@@ -124,7 +122,7 @@ TEST_F(SecsAttributesTest, Inequality) {
   }
 }
 
-// Verify the correctness of bit-wise OR operator.
+// Verify the correctness of the bitwise OR operator.
 TEST_F(SecsAttributesTest, BitwiseOr) {
   SecsAttributeSet result = TrivialZeroObject<SecsAttributeSet>();
 
@@ -149,7 +147,7 @@ TEST_F(SecsAttributesTest, BitwiseOr) {
   EXPECT_EQ(result.xfrm, all_attributes_.xfrm);
 }
 
-// Verify the correctness of bit-wise OR-assign operator.
+// Verify the correctness of the bitwise OR-assign operator.
 TEST_F(SecsAttributesTest, BitwiseOrAssign) {
   SecsAttributeSet result = TrivialZeroObject<SecsAttributeSet>();
 
@@ -175,7 +173,7 @@ TEST_F(SecsAttributesTest, BitwiseOrAssign) {
   EXPECT_EQ(result.xfrm, all_attributes_.xfrm);
 }
 
-// Verify the correctness of bit-wise AND operator.
+// Verify the correctness of the bitwise AND operator.
 TEST_F(SecsAttributesTest, BitwiseAnd) {
   // Verify that ANDing a single-bit attribute set with an attribute set that
   // has all the attributes lit yields correct result.
@@ -194,7 +192,7 @@ TEST_F(SecsAttributesTest, BitwiseAnd) {
   }
 }
 
-// Verify the correctness of bit-wise AND-assign operator.
+// Verify the correctness of the bitwise AND-assign operator.
 TEST_F(SecsAttributesTest, BitwiseAndAssign) {
   // Verify that ANDing a single-bit attribute set with an attribute set that
   // has all the attributes lit yields correct result.
@@ -215,7 +213,44 @@ TEST_F(SecsAttributesTest, BitwiseAndAssign) {
   }
 }
 
-// Verify the correctness of bit-wise negation operator.
+// Verify the correctness of the bitwise XOR operator.
+TEST_F(SecsAttributesTest, BitwiseXor) {
+  // Verify that XORing a set with itself results in all zeroes.
+  for (const SecsAttributeSet &set : attribute_sets_) {
+    SecsAttributeSet result = set ^ set;
+    EXPECT_EQ(result.flags, 0);
+    EXPECT_EQ(result.xfrm, 0);
+  }
+
+  // Verify that XORing a set with all zeroes results in the same set.
+  SecsAttributeSet all_zeroes = TrivialZeroObject<SecsAttributeSet>();
+  for (const SecsAttributeSet &set : attribute_sets_) {
+    SecsAttributeSet result = all_zeroes ^ set;
+    EXPECT_EQ(result.flags, set.flags);
+    EXPECT_EQ(result.xfrm, set.xfrm);
+  }
+}
+
+// Verify the correctness of the bitwise XOR-assign operator.
+TEST_F(SecsAttributesTest, BitwiseXorAssign) {
+  // Verify that XORing a set with itself results in all zeroes.
+  for (const SecsAttributeSet &set : attribute_sets_) {
+    SecsAttributeSet result = set;
+    result ^= set;
+    EXPECT_EQ(result.flags, 0);
+    EXPECT_EQ(result.xfrm, 0);
+  }
+
+  // Verify that XORing a set with all zeroes results in the same set.
+  for (const SecsAttributeSet &set : attribute_sets_) {
+    SecsAttributeSet result = TrivialZeroObject<SecsAttributeSet>();
+    result ^= set;
+    EXPECT_EQ(result.flags, set.flags);
+    EXPECT_EQ(result.xfrm, set.xfrm);
+  }
+}
+
+// Verify the correctness of the bitwise negation operator.
 TEST_F(SecsAttributesTest, BitwiseNegation) {
   SecsAttributeSet zeros = TrivialZeroObject<SecsAttributeSet>();
   SecsAttributeSet ones = TrivialOnesObject<SecsAttributeSet>();
@@ -229,144 +264,70 @@ TEST_F(SecsAttributesTest, BitwiseNegation) {
 // Verify the correctness of conversion from attribute list to attribute set.
 TEST_F(SecsAttributesTest, ListToSet) {
   for (int i = 0; i < attributes_.size(); i++) {
-    std::vector<SecsAttributeBit> v{attributes_[i]};
+    std::vector<AttributeBit> v{attributes_[i]};
 
     SecsAttributeSet set;
-    EXPECT_TRUE(ConvertSecsAttributeRepresentation(v, &set));
+    ASYLO_ASSERT_OK_AND_ASSIGN(set, SecsAttributeSet::FromBits(v));
     EXPECT_EQ(set.flags, attribute_sets_[i].flags);
     EXPECT_EQ(set.xfrm, attribute_sets_[i].xfrm);
   }
 
   SecsAttributeSet set;
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes_, &set));
+  ASYLO_ASSERT_OK_AND_ASSIGN(set, SecsAttributeSet::FromBits(attributes_));
   EXPECT_EQ(set.flags, all_attributes_.flags);
   EXPECT_EQ(set.xfrm, all_attributes_.xfrm);
 }
 
 // Verify error condition for conversion from attribute list to attribute set.
 TEST_F(SecsAttributesTest, ListToSetError) {
-  std::vector<SecsAttributeBit> v{bad_attribute_};
+  std::vector<AttributeBit> v{bad_attribute_};
   std::string str =
       absl::StrCat("SecsAttributeBit specifies a bit position ",
                    static_cast<size_t>(bad_attribute_),
                    " that is larger than the max allowed value of 127");
   EXPECT_LOG(ERROR, str);
-  SecsAttributeSet set;
-  EXPECT_FALSE(ConvertSecsAttributeRepresentation(v, &set));
-}
-
-// Verify the correctness of conversion from AttributeSet to attribute list.
-TEST_F(SecsAttributesTest, SetToList) {
-  std::vector<SecsAttributeBit> list;
-  for (int i = 0; i < attribute_sets_.size(); i++) {
-    EXPECT_TRUE(ConvertSecsAttributeRepresentation(attribute_sets_[i], &list));
-    EXPECT_EQ(list.size(), 1);
-    EXPECT_EQ(list[0], attributes_[i]);
-  }
-
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(all_attributes_, &list));
-  EXPECT_EQ(list.size(), attributes_.size());
-  for (int i = 0; i < list.size(); i++) {
-    EXPECT_EQ(list[i], attributes_[i]);
-  }
-}
-
-// Verify the correctness of conversion from attribute list to Attributes.
-TEST_F(SecsAttributesTest, ListToAttributes) {
-  for (int i = 0; i < attributes_.size(); i++) {
-    std::vector<SecsAttributeBit> v{attributes_[i]};
-
-    Attributes attributes;
-    EXPECT_TRUE(ConvertSecsAttributeRepresentation(v, &attributes));
-    EXPECT_EQ(attributes.flags(), attribute_sets_[i].flags);
-    EXPECT_EQ(attributes.xfrm(), attribute_sets_[i].xfrm);
-  }
-
-  Attributes attributes;
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(all_attributes_, &attributes));
-  EXPECT_EQ(attributes.flags(), all_attributes_.flags);
-  EXPECT_EQ(attributes.xfrm(), all_attributes_.xfrm);
-}
-
-// Verify error handling for conversion from attribute list to Attributes.
-TEST_F(SecsAttributesTest, ListToAttributesError) {
-  std::vector<SecsAttributeBit> v{bad_attribute_};
-  std::string str =
-      absl::StrCat("SecsAttributeBit specifies a bit position ",
-                   static_cast<size_t>(bad_attribute_),
-                   " that is larger than the max allowed value of 127");
-  EXPECT_LOG(ERROR, str);
-  Attributes attributes;
-  EXPECT_FALSE(ConvertSecsAttributeRepresentation(v, &attributes));
-}
-
-// Verify the correctness of conversion from Attributes to attribute list.
-TEST_F(SecsAttributesTest, AttributesToList) {
-  std::vector<SecsAttributeBit> list;
-  Attributes attributes;
-  for (int i = 0; i < attribute_sets_.size(); i++) {
-    attributes.set_flags(attribute_sets_[i].flags);
-    attributes.set_xfrm(attribute_sets_[i].xfrm);
-    EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes, &list));
-    EXPECT_EQ(list.size(), 1);
-    EXPECT_EQ(list[0], attributes_[i]);
-  }
-
-  attributes.set_flags(all_attributes_.flags);
-  attributes.set_xfrm(all_attributes_.xfrm);
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes, &list));
-  EXPECT_EQ(list.size(), attributes_.size());
-  for (int i = 0; i < list.size(); i++) {
-    EXPECT_EQ(list[i], attributes_[i]);
-  }
+  EXPECT_THAT(SecsAttributeSet::FromBits(v),
+              StatusIs(error::GoogleError::INVALID_ARGUMENT));
 }
 
 // Verify the correctness of conversion from AttributeSet to Attributes.
 TEST_F(SecsAttributesTest, SetToAttributes) {
-  Attributes attributes;
   for (int i = 0; i < attribute_sets_.size(); i++) {
-    Attributes attributes;
-    EXPECT_TRUE(
-        ConvertSecsAttributeRepresentation(attribute_sets_[i], &attributes));
+    Attributes attributes = attribute_sets_[i].ToProtoAttributes();
     EXPECT_EQ(attributes.flags(), attribute_sets_[i].flags);
     EXPECT_EQ(attributes.xfrm(), attribute_sets_[i].xfrm);
   }
-
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes_, &attributes));
-  EXPECT_EQ(attributes.flags(), all_attributes_.flags);
-  EXPECT_EQ(attributes.xfrm(), all_attributes_.xfrm);
 }
 
 // Verify the correctness of conversion from Attributes to AttributeSet.
 TEST_F(SecsAttributesTest, AttributesToSet) {
-  std::vector<SecsAttributeBit> list;
+  std::vector<AttributeBit> list;
   Attributes attributes;
-  SecsAttributeSet attribute_set;
 
   for (int i = 0; i < attribute_sets_.size(); i++) {
     attributes.set_flags(attribute_sets_[i].flags);
     attributes.set_xfrm(attribute_sets_[i].xfrm);
-    EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes, &attribute_set));
+    SecsAttributeSet attribute_set(attributes);
     EXPECT_EQ(attributes.flags(), attribute_set.flags);
     EXPECT_EQ(attributes.xfrm(), attribute_set.xfrm);
   }
 
   attributes.set_flags(all_attributes_.flags);
   attributes.set_xfrm(all_attributes_.xfrm);
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes, &attribute_set));
+  SecsAttributeSet attribute_set(attributes);
   EXPECT_EQ(attributes.flags(), all_attributes_.flags);
   EXPECT_EQ(attributes.xfrm(), all_attributes_.xfrm);
 }
 
-// Verify the correctness of TestAttribute on a set.
+// Verify the correctness of IsSet on a set.
 TEST_F(SecsAttributesTest, TestAttributeSet) {
   for (int i = 0; i < attribute_sets_.size(); i++) {
     for (int j = 0; j < attributes_.size(); j++) {
-      EXPECT_EQ(TestAttribute(attributes_[j], attribute_sets_[i]), (i == j));
+      EXPECT_EQ(attribute_sets_[i].IsSet(attributes_[j]), (i == j));
     }
   }
   for (int j = 0; j < attributes_.size(); j++) {
-    EXPECT_TRUE(TestAttribute(attributes_[j], all_attributes_));
+    EXPECT_TRUE(all_attributes_.IsSet(attributes_[j]));
   }
 }
 
@@ -377,144 +338,36 @@ TEST_F(SecsAttributesTest, TestAttributeSetError) {
                    static_cast<size_t>(bad_attribute_),
                    " that is larger than the max allowed value of 127");
 
-  EXPECT_LOG(INFO, str);
+  EXPECT_LOG(ERROR, str);
 
-  EXPECT_FALSE(TestAttribute(bad_attribute_, all_attributes_));
+  EXPECT_FALSE(all_attributes_.IsSet(bad_attribute_));
 }
 
-// Verify the correctness of TestAttribute on Attributes.
-TEST_F(SecsAttributesTest, TestAttributeAttributes) {
-  Attributes attributes;
-  for (int i = 0; i < attribute_sets_.size(); i++) {
-    EXPECT_TRUE(
-        ConvertSecsAttributeRepresentation(attribute_sets_[i], &attributes));
-    for (int j = 0; j < attributes_.size(); j++) {
-      EXPECT_EQ(TestAttribute(attributes_[j], attributes), (i == j));
-    }
-  }
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(all_attributes_, &attributes));
-  for (int j = 0; j < attributes_.size(); j++) {
-    EXPECT_TRUE(TestAttribute(attributes_[j], attributes));
-  }
-}
-
-// Verify the error-handling in TestAttribute on a set.
-TEST_F(SecsAttributesTest, TestAttributeAttributesError) {
-  std::string str =
-      absl::StrCat("SecsAttributeBit specifies a bit position ",
-                   static_cast<size_t>(bad_attribute_),
-                   " that is larger than the max allowed value of 127");
-
-  EXPECT_LOG(INFO, str);
-
-  Attributes attributes;
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(all_attributes_, &attributes));
-  EXPECT_FALSE(TestAttribute(bad_attribute_, attributes));
-}
-
-// Verify that MakeSecsAttributeSet works correctly for valid attribute bits.
-TEST_F(SecsAttributesTest, MakeSecsAttributeSetPositive) {
-  std::vector<SecsAttributeBit> all_attributes_vector;
-  ASSERT_TRUE(ConvertSecsAttributeRepresentation(all_attributes_,
-                                                 &all_attributes_vector));
-  for (auto bit1 : all_attributes_vector) {
-    SecsAttributeSet attributes;
-    ASYLO_ASSERT_OK_AND_ASSIGN(attributes, MakeSecsAttributeSet({bit1}));
-    for (auto bit2 : all_attributes_vector) {
-      EXPECT_EQ(TestAttribute(bit2, attributes), (bit1 == bit2));
-    }
-  }
-  EXPECT_THAT(MakeSecsAttributeSet({bad_attribute_}).status(),
-              StatusIs(error::GoogleError::INVALID_ARGUMENT));
-}
-
-// Verify that MakeSecsAttributeSet fails for an invalid attribute bit.
-TEST_F(SecsAttributesTest, MakeSecsAttributeSetNegative) {
-  EXPECT_THAT(MakeSecsAttributeSet({bad_attribute_}).status(),
+// Verify that SecsAttributeSet::FromBits fails for an invalid attribute bit.
+TEST_F(SecsAttributesTest, FromBitsNegative) {
+  EXPECT_THAT(SecsAttributeSet::FromBits({bad_attribute_}),
               StatusIs(error::GoogleError::INVALID_ARGUMENT));
 }
 
 // Verify that SetDefaultSecsAttributesMask creates a mask that is the logical
 // NOT of the "do not care" attributes set.
 TEST_F(SecsAttributesTest, SetDefaultSecsAttributesMask) {
-  Attributes attributes_match_mask_vector;
-  EXPECT_THAT(SetDefaultSecsAttributesMask(&attributes_match_mask_vector),
-              IsOk());
-  SecsAttributeSet attributes_match_mask;
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(attributes_match_mask_vector,
-                                                 &attributes_match_mask));
-
-  SecsAttributeSet do_not_care_attributes;
-  EXPECT_TRUE(GetDefaultDoNotCareSecsAttributes(&do_not_care_attributes));
+  SecsAttributeSet attributes_match_mask = SecsAttributeSet::GetDefaultMask();
+  SecsAttributeSet do_not_care_attributes =
+      SecsAttributeSet::GetDefaultDoNotCareBits();
 
   EXPECT_EQ(~attributes_match_mask.flags, do_not_care_attributes.flags);
   EXPECT_EQ(~attributes_match_mask.xfrm, do_not_care_attributes.xfrm);
 }
 
-// Verify that SetStrictSecsAttributesMask creates a mask that sets all possible
-// attributes bits.
-TEST_F(SecsAttributesTest, SetStrictSecsAttributesMask) {
-  Attributes attributes_match_mask;
-  SetStrictSecsAttributesMask(&attributes_match_mask);
+// Verify that SecsAttributeSet::GetStrictMask creates a mask that sets all
+// possible attributes bits.
+TEST_F(SecsAttributesTest, GetStrictMask) {
+  Attributes attributes_match_mask =
+      SecsAttributeSet::GetStrictMask().ToProtoAttributes();
 
   EXPECT_EQ(attributes_match_mask.flags(), kLongLongAllF);
   EXPECT_EQ(attributes_match_mask.xfrm(), kLongLongAllF);
-}
-
-// Verify the correctness of GetPrintableAttributeList on an attribute list.
-TEST_F(SecsAttributesTest, GetPrintableAttributeListFromList) {
-  std::vector<std::string> printable_list;
-
-  for (int i = 0; i < attribute_sets_.size(); i++) {
-    std::vector<SecsAttributeBit> attribute_bit_list = {attributes_[i]};
-    GetPrintableAttributeList(attribute_bit_list, &printable_list);
-    EXPECT_EQ(printable_list.size(), 1);
-    EXPECT_EQ(printable_list[0], attribute_names_[i]);
-  }
-
-  GetPrintableAttributeList(attributes_, &printable_list);
-  EXPECT_EQ(printable_list.size(), attributes_.size());
-  for (int i = 0; i < printable_list.size(); i++) {
-    EXPECT_EQ(printable_list[i], attribute_names_[i]);
-  }
-}
-
-// Verify the correctness of GetPrintableAttributeList on an attribute set.
-TEST_F(SecsAttributesTest, GetPrintableAttributeListFromSet) {
-  std::vector<std::string> printable_list;
-
-  for (int i = 0; i < attribute_sets_.size(); i++) {
-    GetPrintableAttributeList(attribute_sets_[i], &printable_list);
-    EXPECT_EQ(printable_list.size(), 1);
-    EXPECT_EQ(printable_list[0], attribute_names_[i]);
-  }
-
-  GetPrintableAttributeList(all_attributes_, &printable_list);
-  EXPECT_EQ(printable_list.size(), attributes_.size());
-  for (int i = 0; i < printable_list.size(); i++) {
-    EXPECT_EQ(printable_list[i], attribute_names_[i]);
-  }
-}
-
-// Verify the correctness of GetPrintableAttributeList on Attributes.
-TEST_F(SecsAttributesTest, GetPrintableAttributeListFromAttributes) {
-  std::vector<std::string> printable_list;
-  Attributes attributes;
-
-  for (int i = 0; i < attribute_sets_.size(); i++) {
-    EXPECT_TRUE(
-        ConvertSecsAttributeRepresentation(attribute_sets_[i], &attributes));
-    GetPrintableAttributeList(attributes, &printable_list);
-    EXPECT_EQ(printable_list.size(), 1);
-    EXPECT_EQ(printable_list[0], attribute_names_[i]);
-  }
-
-  EXPECT_TRUE(ConvertSecsAttributeRepresentation(all_attributes_, &attributes));
-  GetPrintableAttributeList(attributes, &printable_list);
-  EXPECT_EQ(printable_list.size(), attributes_.size());
-  for (int i = 0; i < printable_list.size(); i++) {
-    EXPECT_EQ(printable_list[i], attribute_names_[i]);
-  }
 }
 
 }  // namespace

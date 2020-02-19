@@ -21,12 +21,14 @@
 
 #include <openssl/aes.h>
 #include <openssl/sha.h>
+
 #include <type_traits>
 
 #include "absl/base/attributes.h"
 #include "asylo/crypto/util/bytes.h"
+#include "asylo/identity/additional_authenticated_data_generator.h"
 #include "asylo/identity/sgx/secs_attributes.h"
-#include "asylo/identity/util/aligned_object_ptr.h"
+#include "asylo/util/aligned_object_ptr.h"
 
 // This file defines SGX architectural structures that pertain to the identity
 // and key-management portions of the SGX architecture. These structures are
@@ -89,6 +91,21 @@ constexpr int kIsvfamilyidSize = 16;
 
 // Size of ISVEXTPRODID.
 constexpr int kIsvextprodidSize = 16;
+
+// The SGX architecture defines the size of all hardware keys to be 128 bits
+// (16 bytes), which is same as size of an AES block.
+constexpr size_t kHardwareKeySize = AES_BLOCK_SIZE;
+
+// Type alias used for holding a hardware key. It uses the SafeBytes
+// template to ensure proper cleansing after the object goes out of scope.
+using HardwareKey = SafeBytes<kHardwareKeySize>;
+
+static_assert(sizeof(HardwareKey) == kHardwareKeySize,
+              "Size of the struct HardwareKey is incorrect.");
+
+// The SGX architecture requires that the output memory address passed into the
+// EGETKEY instruction must be aligned on a 16-byte boundary.
+using AlignedHardwareKeyPtr = AlignedObjectPtr<HardwareKey, 16>;
 
 // Date defines the format of the "date" field embedded in a SIGSTRUCT.
 //
@@ -281,6 +298,9 @@ using AlignedTargetinfoPtr = AlignedObjectPtr<Targetinfo, 512>;
 // Size of REPORTDATA field in the REPORT and REPORTDATA structs defined below.
 constexpr int kReportdataSize = 64;
 
+static_assert(kReportdataSize == kAdditionalAuthenticatedDataSize,
+              "Report data must be able to hold additional authenticated data");
+
 // Defines the REPORTDATA architectural structure, which holds kReportdataSize
 // bytes of unstructured data. A REPORTDATA is one of the inputs that is
 // provided to the EREPORT instruction. The EREPORT instruction includes the
@@ -302,10 +322,10 @@ constexpr int kReportKeyidSize = 32;
 static_assert(kReportKeyidSize == kKeyrequestKeyidSize,
               "KEYID size for REPORT and KEYREQUEST structs is not the same");
 
-// Defines the REPORT architectural structure, which acts as a
-// locally-verifiable assertion of an enclave's identity. REPORT is an output
-// from the ENCLU[EREPORT] instruction.
-struct Report {
+// Defines the portion of a REPORT architectural structure which will be MACed.
+// The ReportBody describes various attestable attributes and measurements of a
+// running enclave.
+struct ReportBody {
   UnsafeBytes<kCpusvnSize> cpusvn;
   uint32_t miscselect;
   UnsafeBytes<12> reserved1;  // Field size taken from the Intel SDM.
@@ -322,6 +342,16 @@ struct Report {
   UnsafeBytes<42> reserved4;  // Field size taken from the Intel SDM.
   UnsafeBytes<kIsvfamilyidSize> isvfamilyid;
   Reportdata reportdata;
+} ABSL_ATTRIBUTE_PACKED;
+
+static_assert(sizeof(ReportBody) == 384,
+              "Size of struct ReportBody is incorrect");
+
+// Defines the REPORT architectural structure, which acts as a
+// locally-verifiable assertion of an enclave's identity. REPORT is an output
+// from the ENCLU[EREPORT] instruction.
+struct Report {
+  ReportBody body;
   UnsafeBytes<kReportKeyidSize> keyid;
   UnsafeBytes<kSgxMacSize> mac;
 } ABSL_ATTRIBUTE_PACKED;
@@ -349,6 +379,8 @@ static_assert(std::is_trivial<Targetinfo>::value,
               "Targetinfo is not a trivial type");
 static_assert(std::is_trivial<Reportdata>::value,
               "Reportdata is not a trivial type");
+static_assert(std::is_trivial<ReportBody>::value,
+              "ReportBody is not a trivial type");
 static_assert(std::is_trivial<Report>::value, "Report is not a trivial type");
 
 }  // namespace sgx

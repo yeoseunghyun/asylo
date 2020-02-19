@@ -21,14 +21,13 @@
 #endif
 #include <signal.h>
 
-#include <pthread.h>
 #include <cstdlib>
 
 #include "absl/synchronization/mutex.h"
-#include "asylo/platform/arch/include/trusted/host_calls.h"
-#include "asylo/platform/arch/include/trusted/register_signal.h"
 #include "asylo/platform/core/trusted_global_state.h"
+#include "asylo/platform/host_call/trusted/host_calls.h"
 #include "asylo/platform/posix/signal/signal_manager.h"
+#include "asylo/platform/primitives/trusted_runtime.h"
 
 extern "C" {
 
@@ -63,10 +62,7 @@ int sigaction(int signum, const struct sigaction *act,
   {
     absl::MutexLock lock(&sigaction_lock);
     if (oldact) {
-      if (signal_manager->GetSigAction(signum)) {
-        oldact = const_cast<struct sigaction *>(
-            signal_manager->GetSigAction(signum));
-      } else {
+      if (!signal_manager->GetSigAction(signum, oldact)) {
         oldact->sa_handler = SIG_DFL;
       }
     }
@@ -80,12 +76,13 @@ int sigaction(int signum, const struct sigaction *act,
     flags = act->sa_flags;
   }
   if (flags & SA_RESETHAND) {
-    signal_manager->SetResetOnHandle(signum);
+    signal_manager->SetResetStatus(
+        signum, asylo::SignalManager::ResetStatus::TO_BE_RESET);
+  } else {
+    signal_manager->SetResetStatus(signum,
+                                   asylo::SignalManager::ResetStatus::NO_RESET);
   }
-  const std::string enclave_name = asylo::GetEnclaveName();
-  // Pass a C string because enc_register_signal has C linkage. This string is
-  // copied to untrusted memory when going across enclave boundary.
-  return enc_register_signal(signum, mask, flags, enclave_name.c_str());
+  return enc_register_signal(signum, mask, flags);
 }
 
 // Sets the signal mask with |set|.

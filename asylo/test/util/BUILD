@@ -14,9 +14,18 @@
 # limitations under the License.
 #
 
-load("//asylo/bazel:asylo.bzl", "ASYLO_ALL_BACKENDS", "cc_test")
+load(
+    "//asylo/bazel:asylo.bzl",
+    "ASYLO_ALL_BACKEND_TAGS",
+    "cc_test",
+    "cc_unsigned_enclave",
+    "debug_sign_enclave",
+)
 load("//asylo/bazel:copts.bzl", "ASYLO_DEFAULT_COPTS")
-load("@linux_sgx//:sgx_sdk.bzl", "sgx_enclave")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@linux_sgx//:sgx_sdk.bzl", "sgx")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 
 licenses(["notice"])  # Apache v2.0
 
@@ -100,6 +109,7 @@ cc_library(
         ":test_string_cc_proto",
         "//asylo:enclave_cc_proto",
         "//asylo:enclave_client",
+        "//asylo/platform/primitives/sgx:loader_cc_proto",
         "//asylo/util:logging",
         "//asylo/util:status",
         "@com_google_absl//absl/memory",
@@ -113,13 +123,23 @@ cc_library(
     srcs = ["enclave_test_application.cc"],
     hdrs = ["enclave_test_application.h"],
     copts = ASYLO_DEFAULT_COPTS,
-    tags = ASYLO_ALL_BACKENDS,
+    tags = ASYLO_ALL_BACKEND_TAGS,
     visibility = ["//asylo:implementation"],
     deps = [
         ":test_string_cc_proto",
         "//asylo:enclave_cc_proto",
         "//asylo:enclave_runtime",
     ],
+)
+
+# Boundary values of integral types.
+cc_library(
+    name = "integral_type_test_data",
+    testonly = 1,
+    hdrs = ["integral_type_test_data.h"],
+    copts = ASYLO_DEFAULT_COPTS,
+    visibility = ["//asylo:implementation"],
+    deps = ["@com_google_googletest//:gtest"],
 )
 
 # Program entry to parse flags and run all gtest tests.
@@ -176,7 +196,6 @@ cc_library(
         ":enclave_test_launcher",
         ":status_matchers",
         ":test_flags",
-        ":test_main",
         "//asylo:enclave_cc_proto",
         "//asylo/util:status",
         "@com_google_absl//absl/flags:flag",
@@ -205,6 +224,7 @@ cc_library(
     hdrs = ["proto_matchers.h"],
     copts = ASYLO_DEFAULT_COPTS,
     deps = [
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
     ],
@@ -219,7 +239,6 @@ cc_library(
     copts = ASYLO_DEFAULT_COPTS,
     visibility = ["//visibility:public"],
     deps = [
-        "//asylo/crypto/util:bytes",
         "//asylo/util:status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
@@ -238,6 +257,58 @@ cc_test(
         ":test_main",
         "//asylo/util:status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "string_matchers",
+    testonly = 1,
+    hdrs = ["string_matchers.h"],
+    copts = ASYLO_DEFAULT_COPTS,
+    visibility = ["//asylo:implementation"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "string_matchers_test",
+    srcs = ["string_matchers_test.cc"],
+    copts = ASYLO_DEFAULT_COPTS,
+    enclave_test_name = "string_matchers_enclave_test",
+    deps = [
+        ":string_matchers",
+        ":test_main",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "memory_matchers",
+    testonly = 1,
+    hdrs = ["memory_matchers.h"],
+    copts = ASYLO_DEFAULT_COPTS,
+    visibility = ["//asylo:implementation"],
+    deps = [
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "memory_matchers_test",
+    srcs = ["memory_matchers_test.cc"],
+    copts = ASYLO_DEFAULT_COPTS,
+    enclave_test_name = "memory_matchers_enclave_test",
+    deps = [
+        ":memory_matchers",
+        ":test_main",
+        "//asylo/crypto/util:bytes",
+        "//asylo/crypto/util:trivial_object_util",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -280,6 +351,7 @@ cc_library(
     deps = [
         "//asylo:enclave_client",
         "//asylo/util:status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -291,8 +363,10 @@ cc_library(
     copts = ASYLO_DEFAULT_COPTS,
     visibility = ["//visibility:public"],
     deps = [
+        "//asylo:enclave_cc_proto",
         "//asylo:enclave_client",
         "//asylo/util:status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -306,8 +380,10 @@ cc_library(
     copts = ASYLO_DEFAULT_COPTS,
     visibility = ["//visibility:public"],
     deps = [
+        "//asylo:enclave_cc_proto",
         "//asylo:enclave_client",
         "//asylo/util:status",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -328,12 +404,11 @@ cc_library(
     testonly = 1,
     srcs = ["enclave_assertion_authority_configs.cc"],
     hdrs = ["enclave_assertion_authority_configs.h"],
+    copts = ASYLO_DEFAULT_COPTS,
     visibility = ["//asylo:implementation"],
     deps = [
-        "//asylo/identity:descriptions",
         "//asylo/identity:enclave_assertion_authority_config_cc_proto",
-        "//asylo/identity/sgx:sgx_local_assertion_authority_config_cc_proto",
-        "//asylo/util:logging",
+        "//asylo/identity:enclave_assertion_authority_configs",
     ],
 )
 
@@ -346,11 +421,18 @@ sh_library(
 
 # An enclave for testing purposes. All entry points use the default
 # implementations.
-sgx_enclave(
-    name = "do_nothing_enclave.so",
+cc_unsigned_enclave(
+    name = "do_nothing_enclave_unsigned.so",
     srcs = ["do_nothing_enclave.cc"],
+    backends = sgx.backend_labels,
     copts = ASYLO_DEFAULT_COPTS,
     deps = ["//asylo:enclave_runtime"],
+)
+
+debug_sign_enclave(
+    name = "do_nothing_enclave.so",
+    backends = sgx.backend_labels,
+    unsigned = "do_nothing_enclave_unsigned.so",
 )
 
 # Sample text for testing purposes.

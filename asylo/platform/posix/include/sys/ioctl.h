@@ -16,20 +16,32 @@
  *
  */
 
+
+#include_next <sys/ioctl.h>
+
 #ifndef ASYLO_PLATFORM_POSIX_INCLUDE_SYS_IOCTL_H_
 #define ASYLO_PLATFORM_POSIX_INCLUDE_SYS_IOCTL_H_
 
+#ifndef ASYLO_TRANSITIONAL_DEFINE_FOR_IOCTL
+
 #include <stdint.h>
+
 
 // Definitions of IOCTL requests supported in the enclave. Can be extended as
 // needed. Note: if/when will need to support standard IOCTLs, may need to
 // define and use ioctl enclave-to-host delegates to delegate ioctl to the host.
 
 // Type macro for IOCTL requests sent to the secure storage subsystem.
+// [Deprecated location: use asylo/secure_storage.h]
+#ifndef ENCLAVE_STORAGE_IOCTL_TYPE
 #define ENCLAVE_STORAGE_IOCTL_TYPE 0x00880000
+#endif
 
 // IOCTL to set a key on a secure file.
+// [Deprecated location: use asylo/secure_storage.h]
+#ifndef ENCLAVE_STORAGE_SET_KEY
 #define ENCLAVE_STORAGE_SET_KEY (ENCLAVE_STORAGE_IOCTL_TYPE | 0x00000001)
+#endif
 
 #define TIOCGWINSZ 0x5413
 
@@ -39,11 +51,6 @@ struct winsize {
   uint16_t ws_xpixel;
   uint16_t ws_ypixel;
 };
-
-struct key_info {
-  uint32_t length;
-  uint8_t *data;
-} __attribute__((packed));
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,4 +62,5 @@ int ioctl(int fd, int request, ...);
 }  // extern "C"
 #endif
 
+#endif  // ASYLO_TRANSITIONAL_DEFINE_FOR_IOCTL
 #endif  // ASYLO_PLATFORM_POSIX_INCLUDE_SYS_IOCTL_H_

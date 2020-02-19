@@ -22,14 +22,21 @@
 namespace asylo {
 namespace sgx {
 
-// Constant representing SGX local assertion authority type.
+// Constant representing the SGX local assertion authority type.
 extern const char *const kSgxLocalAssertionAuthority;
 
-// Constant representing SGX remote assertion authority type.
-extern const char *const kSgxRemoteAssertionAuthority;
+// Constant representing the SGX AGE remote assertion authority type.
+extern const char *const kSgxAgeRemoteAssertionAuthority;
+
+// Constant representing Intel ECDSA assertion authority type.
+extern const char *const kSgxIntelEcdsaQeRemoteAssertionAuthority;
 
 // Constant representing SGX authorization authority type.
 extern const char *const kSgxAuthorizationAuthority;
+
+// Constant representing the version string of a serialized SGX identity
+// in the |identity| field of an EnclaveIdentity.
+extern const char *const kSgxIdentityVersionString;
 
 }  // namespace sgx
 }  // namespace asylo

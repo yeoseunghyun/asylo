@@ -23,11 +23,11 @@
 // than self_identity.cc and fake_self_identity.cc.
 
 #include "asylo/crypto/util/trivial_object_util.h"
-#include "asylo/identity/sgx/self_identity.h"
 #include "asylo/util/logging.h"
-#include "asylo/identity/sgx/code_identity_util.h"
 #include "asylo/identity/sgx/hardware_interface.h"
 #include "asylo/identity/sgx/identity_key_management_structs.h"
+#include "asylo/identity/sgx/self_identity.h"
+#include "asylo/identity/sgx/sgx_identity_util_internal.h"
 
 namespace asylo {
 namespace sgx {
@@ -37,28 +37,23 @@ namespace sgx {
 SelfIdentity::SelfIdentity() {
   AlignedTargetinfoPtr tinfo;
   AlignedReportdataPtr reportdata;
-  AlignedReportPtr report;
 
   *tinfo = TrivialZeroObject<Targetinfo>();
   *reportdata = TrivialZeroObject<Reportdata>();
 
-  Status status = GetHardwareReport(*tinfo, *reportdata, report.get());
-  if (!status.ok()) {
-    LOG(FATAL) << "GetHardwareReport() failed: " << status;
-  }
+  Report report = HardwareInterface::CreateDefault()
+                      ->GetReport(*tinfo, *reportdata)
+                      .ValueOrDie();
 
-  cpusvn = report->cpusvn;
-  miscselect = report->miscselect;
-  attributes = report->attributes;
-  mrenclave = report->mrenclave;
-  mrsigner = report->mrsigner;
-  isvprodid = report->isvprodid;
-  isvsvn = report->isvsvn;
+  cpusvn = report.body.cpusvn;
+  miscselect = report.body.miscselect;
+  attributes = report.body.attributes;
+  mrenclave = report.body.mrenclave;
+  mrsigner = report.body.mrsigner;
+  isvprodid = report.body.isvprodid;
+  isvsvn = report.body.isvsvn;
 
-  status = ParseIdentityFromHardwareReport(*report, &identity);
-  if (!status.ok()) {
-    LOG(FATAL) << status;
-  }
+  sgx_identity = ParseSgxIdentityFromHardwareReport(report);
 }
 
 }  // namespace sgx

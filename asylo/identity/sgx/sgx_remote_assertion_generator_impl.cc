@@ -21,14 +21,40 @@
 #include <memory>
 #include <vector>
 
-#include "asylo/grpc/auth/peer_identity_util.h"
-#include "asylo/identity/sgx/code_identity_util.h"
-#include "asylo/identity/sgx/remote_assertion_util.h"
+#include "asylo/grpc/auth/enclave_auth_context.h"
+#include "asylo/identity/attestation/sgx/internal/remote_assertion_util.h"
+#include "asylo/identity/descriptions.h"
+#include "asylo/identity/sgx/sgx_identity_util.h"
 #include "asylo/util/mutex_guarded.h"
 #include "asylo/util/status.h"
+#include "asylo/util/status_macros.h"
 #include "include/grpcpp/support/status.h"
 
 namespace asylo {
+namespace {
+
+Status ExtractSgxIdentity(const EnclaveAuthContext &auth_context,
+                          SgxIdentity *sgx_identity) {
+  EnclaveIdentityDescription enclave_identity_description;
+  SetSgxIdentityDescription(&enclave_identity_description);
+  StatusOr<const EnclaveIdentity *> identity_result =
+      auth_context.FindEnclaveIdentity(enclave_identity_description);
+  if (!identity_result.ok()) {
+    LOG(ERROR) << "FindEnclaveIdentity failed: " << identity_result.status();
+    return Status(error::GoogleError::PERMISSION_DENIED,
+                  "Peer does not have SGX identity");
+  }
+
+  ASYLO_ASSIGN_OR_RETURN(*sgx_identity,
+                         ParseSgxIdentity(*identity_result.ValueOrDie()));
+  return Status::OkStatus();
+}
+
+}  // namespace
+
+SgxRemoteAssertionGeneratorImpl::SgxRemoteAssertionGeneratorImpl()
+    : signing_key_(nullptr),
+      certificate_chains_(std::vector<CertificateChain>()) {}
 
 SgxRemoteAssertionGeneratorImpl::SgxRemoteAssertionGeneratorImpl(
     std::unique_ptr<SigningKey> signing_key,
@@ -40,15 +66,31 @@ SgxRemoteAssertionGeneratorImpl::SgxRemoteAssertionGeneratorImpl(
     ::grpc::ServerContext *context,
     const GenerateSgxRemoteAssertionRequest *request,
     GenerateSgxRemoteAssertionResponse *response) {
-  sgx::CodeIdentity code_identity;
-  Status status = ExtractAndCheckPeerSgxCodeIdentity(
-      *context->auth_context().get(), &code_identity);
+  StatusOr<EnclaveAuthContext> auth_context_result =
+      EnclaveAuthContext::CreateFromAuthContext(*context->auth_context());
+  if (!auth_context_result.ok()) {
+    LOG(ERROR) << "CreateFromServerContext failed: "
+               << auth_context_result.status();
+    return ::grpc::Status(
+        ::grpc::StatusCode::INTERNAL,
+        "Failed to retrieve enclave authentication information");
+  }
+  EnclaveAuthContext auth_context = auth_context_result.ValueOrDie();
+
+  SgxIdentity sgx_identity;
+  Status status = ExtractSgxIdentity(auth_context, &sgx_identity);
   if (!status.ok()) {
     return status.ToOtherStatus<::grpc::Status>();
   }
   auto signing_key_locked = signing_key_.ReaderLock();
+
+  if (*signing_key_locked == nullptr) {
+    return ::grpc::Status(::grpc::StatusCode::FAILED_PRECONDITION,
+                          "No attestation key available");
+  }
+
   auto certificate_chains_locked = certificate_chains_.ReaderLock();
-  status = MakeRemoteAssertion(request->user_data(), code_identity,
+  status = MakeRemoteAssertion(request->user_data(), sgx_identity,
                                **signing_key_locked, *certificate_chains_locked,
                                response->mutable_assertion());
   if (!status.ok()) {

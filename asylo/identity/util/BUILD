@@ -14,68 +14,23 @@
 # limitations under the License.
 #
 
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+
 licenses(["notice"])  # Apache v2.0
-
-# This package defines utility libraries that are used by the identity libraries.
-
-load("//asylo/bazel:copts.bzl", "ASYLO_DEFAULT_COPTS")
-
-cc_library(
-    name = "aligned_object_ptr",
-    hdrs = ["aligned_object_ptr.h"],
-    copts = ASYLO_DEFAULT_COPTS,
-    visibility = ["//asylo:implementation"],
-)
-
-cc_test(
-    name = "aligned_object_ptr_test",
-    srcs = ["aligned_object_ptr_test.cc"],
-    copts = ASYLO_DEFAULT_COPTS,
-    deps = [
-        ":aligned_object_ptr",
-        "//asylo/test/util:test_main",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_googletest//:gtest",
-    ],
-)
 
 proto_library(
     name = "sha256_hash_proto",
     srcs = ["sha256_hash.proto"],
-    visibility = ["//asylo:implementation"],
+    deprecation = "Use //asylo/crypto:sha256_hash_proto",
+    visibility = ["//visibility:public"],
+    exports = ["//asylo/crypto:sha256_hash_proto"],
+    deps = ["//asylo/crypto:sha256_hash_proto"],
 )
 
 cc_proto_library(
     name = "sha256_hash_cc_proto",
-    visibility = ["//asylo:implementation"],
-    deps = ["sha256_hash_proto"],
-)
-
-cc_library(
-    name = "sha256_hash_util",
-    srcs = ["sha256_hash_util.cc"],
-    hdrs = ["sha256_hash_util.h"],
-    copts = ASYLO_DEFAULT_COPTS,
-    visibility = ["//asylo:implementation"],
-    deps = [
-        ":sha256_hash_cc_proto",
-        "//asylo/crypto/util:bytes",
-        "//asylo/crypto/util:trivial_object_util",
-        "@com_google_absl//absl/strings",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-cc_test(
-    name = "sha256_hash_util_test",
-    srcs = ["sha256_hash_util_test.cc"],
-    copts = ASYLO_DEFAULT_COPTS,
-    deps = [
-        ":sha256_hash_cc_proto",
-        ":sha256_hash_util",
-        "//asylo/test/util:test_main",
-        "//asylo/util:status",
-        "@com_google_googletest//:gtest",
-    ],
+    deprecation = "Use //asylo/crypto:sha256_hash_cc_proto",
+    visibility = ["//visibility:public"],
+    deps = [":sha256_hash_proto"],
 )
