@@ -38,12 +38,25 @@ class TranslatorServerImpl final : public Translator::Service {
   explicit TranslatorServerImpl();
 
  private:
+  ::grpc::Status MatMul(::grpc::ServerContext *context,
+                              const GetMatMulRequest *query,
+                              GetMatmulResponse *response) ;
+
   ::grpc::Status GetTranslation(::grpc::ServerContext *context,
                                 const GetTranslationRequest *request,
                                 GetTranslationResponse *response) override;
 
   // A map from words to their translations.
   absl::flat_hash_map<std::string, std::string> translation_map_;
+
+  void split(const std::string &str, std::vector<std::string> &vect, char ch);
+	void getDim(std::string size,int& count_rows, int& count_columns);
+	double** getMat(std::string size, std::vector<double> input, int &count_rows, int &count_columns);
+	double** transpose(std::vector<double> input, int &count_rows, int &count_columns);
+	double** matmul(double** input_mat1, double** input_mat2);
+	void getOutput();
+ 	void setOutput(GetMatmulResponse *response);
+	void deleteMemory();
 };
 
 }  // namespace grpc_server

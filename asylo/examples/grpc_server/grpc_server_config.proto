@@ -24,7 +24,6 @@ extend asylo.EnclaveConfig {
   // The address that the gRPC server inside the enclave will be hosted on.
   // Required.
   optional string server_address = 205739939;
-
   // The port that the gRPC server should listen to. May be 0 to request that
   // the server let the operating system choose an unused port.
   optional int32 port = 253106740;

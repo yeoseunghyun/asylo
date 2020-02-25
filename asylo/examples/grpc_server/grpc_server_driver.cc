@@ -31,13 +31,13 @@
 ABSL_FLAG(std::string, enclave_path, "", "Path to enclave to load");
 
 // By default, let the server run for five minutes.
-ABSL_FLAG(int32_t, server_max_lifetime, 300,
+ABSL_FLAG(int32_t, server_max_lifetime, 16000,
           "The longest amount of time (in seconds) that the server should be "
           "allowed to run");
 
 // Default value 0 is used to indicate that the system should choose an
 // available port.
-ABSL_FLAG(int32_t, port, 0, "Port that the server listens to");
+ABSL_FLAG(int32_t, port, 34567, "Port that the server listens to");
 ABSL_FLAG(bool, debug, true, "Whether to use a debug enclave");
 
 int main(int argc, char *argv[]) {

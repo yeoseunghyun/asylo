@@ -45,6 +45,8 @@ namespace grpc_server {
 // * Finalize shuts down the server.
 class GrpcServerEnclave final : public asylo::TrustedApplication {
  public:
+  GrpcServerEnclave() = default;
+  
   asylo::Status Initialize(const asylo::EnclaveConfig &enclave_config)
       LOCKS_EXCLUDED(server_mutex_) override;
 
@@ -92,7 +94,10 @@ asylo::Status GrpcServerEnclave::Initialize(
 
   // Create a ServerBuilder object to set up the server.
   ::grpc::ServerBuilder builder;
-
+  
+  builder.SetMaxReceiveMessageSize(INT_MAX);
+  builder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_GZIP);
+  
   std::shared_ptr<::grpc::ServerCredentials> server_credentials =
       ::grpc::InsecureServerCredentials();
 
