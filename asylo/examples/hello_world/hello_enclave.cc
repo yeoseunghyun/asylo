@@ -35,7 +35,7 @@
 #include "asylo/util/cleanup.h"
 #include "asylo/util/status_macros.h"
 #include "asylo/crypto/aead_key.h"
-
+#include "zlib.h"
 
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -81,11 +81,13 @@ class HelloApplication : public asylo::TrustedApplication {
     }
     std::string input_key =
         input.GetExtension(hello_world::enclave_input_hello).to_greet();
+
+    input_key = "f2 fc e5 0d c7 91 9c d6 07 7e 60 35 3e c9 ab d5 a0 a8 4a 2d 7d a5 07 e8 34 a7 e0 c0 6d ea bc 20";
     /*std::string file_path =
         input.GetExtensio(hello_world::enclave_input_hello).file();
     */
 
-    std::string file_path = "file_path_to_data";
+    std::string file_path = "/home/yeo14/data/enc_data";
     LOG(INFO) << "[DEBUG] AES-GCM KEY :" << input_key;
     input_key = ReplaceAll(input_key,std::string(" "),std::string(""));
     uint8_t* key = RetriveKeyFromString(ReplaceAll(input_key,std::string(" "),std::string("")),KeySize);
@@ -102,13 +104,24 @@ class HelloApplication : public asylo::TrustedApplication {
     size_t nonce_len= EVP_AEAD_nonce_length(aead);
     EVP_AEAD_CTX_init(&ctx, aead, key, EVP_AEAD_key_length(aead),EVP_AEAD_DEFAULT_TAG_LENGTH, NULL);
     EVP_AEAD_CTX_open(&ctx, dout,&dout_len,1024, nonce, nonce_len, fin, fin_len,NULL, 0);
-    LOG(INFO) << "[DEBUG] Plaintext from Encrypted Data : ";
-    LOG(INFO) << "[DEBUG] "<< dout;
+    LOG(INFO) << "[DEBUG] Decrypted Data : "<< dout;
+
+    unsigned char* pCompressedData = (unsigned char*) dout;
+
+	// decompress
+	  unsigned long nDataSize = 2048;
+	  unsigned char * pUncompressedData = new unsigned char [nDataSize];
+    if(pCompressedData !=nullptr)
+    memset(pUncompressedData,0,2048);
+    int nResult = uncompress(pUncompressedData, &nDataSize, dout, dout_len);
+    if(nResult != Z_OK)
+    {};
+    LOG(INFO) << "[DEBUG] Decrypted and Uncompressed Data : " << pUncompressedData;
 
 
     if (output) {
       output->MutableExtension(hello_world::enclave_output_hello)
-          ->set_greeting_message("Release Enclave");
+          ->set_greeting_message("Done");
     }
     return asylo::Status::OkStatus();
   }
