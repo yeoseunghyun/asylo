@@ -25,6 +25,11 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <openssl/aead.h>
+#include <openssl/bio.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
 
 #include "asylo/examples/hello_world/hello.pb.h"
 #include "asylo/util/logging.h"
@@ -43,6 +48,7 @@
 
 const char AssociatedDataBuf[] = "";
 const size_t KeySize =32;
+unsigned char chiper[256], plain[256];
 
 std::string ReplaceAll(std::string str, const std::string& from, const std::string& to) {
     size_t start_pos = 0;
@@ -69,6 +75,25 @@ uint8_t* RetriveKeyFromString(std::string stf,size_t key_size){
   return key;
 }
 
+RSA *RetrivePubKeyFromX509(const char *file_name)
+{
+    BIO *certbio = BIO_new(BIO_s_file());
+    BIO_read_filename(certbio, file_name);
+    RSA *output = EVP_PKEY_get0_RSA(
+        X509_get_pubkey(
+            PEM_read_bio_X509(certbio, NULL, 0, NULL)));
+    BIO_free(certbio);
+    return output;
+}
+
+int ReadFromFS(const char *file_name, unsigned char *p)
+{
+    BIO *inputbio = BIO_new(BIO_s_file());
+    BIO_read_filename(inputbio, file_name);
+    int nrbytes = BIO_read(inputbio, p, 256);
+    return nrbytes;
+}
+
 class HelloApplication : public asylo::TrustedApplication {
  public:
   HelloApplication() : visitor_count_(0) {}
@@ -79,15 +104,22 @@ class HelloApplication : public asylo::TrustedApplication {
       return asylo::Status(asylo::error::GoogleError::INVALID_ARGUMENT,
                            "Expected a HelloInput extension on input.");
     }
-    std::string input_key =
+    std::string dummy =
         input.GetExtension(hello_world::enclave_input_hello).to_greet();
 
+    RSA *pPubKey = RetrivePubKeyFromX509("/home/yeo/data/public.crt");
+    ReadFromFS("/home/yeo/data/enc_key", chiper);
+    int plain_len = RSA_public_decrypt(sizeof(chiper), chiper, plain, pPubKey, RSA_PKCS1_PADDING);
+    std::string input_key((char*)plain);
+    
+    /*
     input_key = "f2 fc e5 0d c7 91 9c d6 07 7e 60 35 3e c9 ab d5 a0 a8 4a 2d 7d a5 07 e8 34 a7 e0 c0 6d ea bc 20";
+    */
     /*std::string file_path =
         input.GetExtensio(hello_world::enclave_input_hello).file();
     */
 
-    std::string file_path = "/home/yeo14/data/enc_data";
+    std::string file_path = "/home/yeo/data/enc_data";
     LOG(INFO) << "[DEBUG] AES-GCM KEY :" << input_key;
     input_key = ReplaceAll(input_key,std::string(" "),std::string(""));
     uint8_t* key = RetriveKeyFromString(ReplaceAll(input_key,std::string(" "),std::string("")),KeySize);
