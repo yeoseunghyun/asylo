@@ -159,7 +159,7 @@ double **TranslatorServerImpl::matmul(double** input_mat1, double input_mat2[2][
 	double **result_mat;
   result_mat = new double *[output_row];
 
-	for (int i = 0; i < row_mat1; i++){
+	for (int i = 0; i < output_row; i++){
 		result_mat[i] = new double[output_col];
 	}
 
@@ -264,21 +264,9 @@ void TranslatorServerImpl::deleteMemory()
 	for (int i = 0; i < b_size ; i++)
 		b_input.push_back(request->tensor2(i));
 	
-	if (col_mat1 != row_mat2){
-		/*
-		if (col_mat1 == col_mat2){
-			matrix1 = getMat(input_size1, input_str1, row_mat1, col_mat1);
-			matrix2 = transpose(input_str2, row_mat2, col_mat2);
-		}
-		else if (row_mat2 == row_mat1){
-			matrix1 = transpose(input_str1, row_mat1, col_mat1);
-			matrix2 = getMat(input_size2, input_str2, row_mat2, col_mat2);
-		}*/
-	}
-	else{
 		w = getMat(w_size_str, w_input, w_row, w_col);
 		b = getVec(b_input, b_size);
-	}
+	
 
 	matrix_result = matmul(w, x,1,5,2);
 	matadd(matrix_result, b, 1, 5);
