@@ -51,11 +51,15 @@ class TranslatorServerImpl final : public Translator::Service {
 
   void split(const std::string &str, std::vector<std::string> &vect, char ch);
 	void getDim(std::string size,int& count_rows, int& count_columns);
+  void getDim(std::string szie, int &vec_size);
 	double** getMat(std::string size, std::vector<double> input, int &count_rows, int &count_columns);
+  double *getVec(std::vector<double> input, int vec_size);
 	double** transpose(std::vector<double> input, int &count_rows, int &count_columns);
-	double** matmul(double** input_mat1, double** input_mat2);
+	double** matmul(double** input_mat1, double input_mat2[2][5], int output_row, int output_col, int inner);
+  void matadd(double **input_mat1, double *vec, int mat_row, int mat_col);
+  void matsub(double **input_mat1, double vec[1][5], int mat_row, int mat_col);
 	void getOutput();
- 	void setOutput(GetMatmulResponse *response);
+ 	void setOutput(GetMatmulResponse *response, int, int);
 	void deleteMemory();
 };
 

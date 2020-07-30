@@ -48,6 +48,6 @@ service Translator {
   rpc GetTranslation(GetTranslationRequest) returns (GetTranslationResponse) {
     // errors: no input word, no translation available
   }
-    rpc MatMul(GetMatMulRequest) returns (GetMatmulResponse) {
+  rpc MatMul(GetMatMulRequest) returns (GetMatmulResponse) {
   }
 }

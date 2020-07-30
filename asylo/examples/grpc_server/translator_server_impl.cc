@@ -56,10 +56,20 @@ TranslatorServerImpl::TranslatorServerImpl()
 }
 
 double **matrix1, **matrix2, **matrix_result;
+double x[2][5]={{1,0,3,0,5},{0,2,0,4,0}};
+double y[1][5] = {1,2,3,4,5};
+double **w;
+double *b;
 std::string output;
 
 int row_mat1, row_mat2;
 int col_mat1, col_mat2;
+
+
+int w_row, w_col;
+int x_row, x_col;
+int y_row, y_col;
+int b_size;
 
 void TranslatorServerImpl::split(const std::string &str, std::vector<std::string> &vect, char ch)
 {
@@ -88,6 +98,13 @@ void TranslatorServerImpl::getDim(std::string size, int &count_rows, int &count_
 	count_columns = atoi(vect_shape[1].erase((vect_shape[1].length() - 1), 1).c_str());
 }
 
+void TranslatorServerImpl::getDim(std::string size, int &vec_size)
+{
+	std::vector<std::string> vec_shape;
+	split(size, vec_shape, ',');
+	vec_size = atoi(vec_shape[0].erase(0,1).c_str());
+}
+
 double **TranslatorServerImpl::getMat(std::string size, std::vector<double> input, int &count_rows, int &count_columns)
 {
 	double **ary;
@@ -104,6 +121,15 @@ double **TranslatorServerImpl::getMat(std::string size, std::vector<double> inpu
 		}
 	}
 
+	return ary;
+}
+
+double *TranslatorServerImpl::getVec(std::vector<double> input, int vec_size)
+{
+	double *ary = new double [vec_size];
+	for (int i = 0; i<vec_size;i++)
+		ary[i] = input[i];
+	
 	return ary;
 }
 
@@ -128,20 +154,20 @@ double **TranslatorServerImpl::transpose(std::vector<double> input, int &count_r
 	return ary;
 }
 
-double **TranslatorServerImpl::matmul(double **input_mat1, double **input_mat2)
+double **TranslatorServerImpl::matmul(double** input_mat1, double input_mat2[2][5], int output_row, int output_col, int inner)
 {
 	double **result_mat;
-  result_mat = new double *[row_mat1];
+  result_mat = new double *[output_row];
 
 	for (int i = 0; i < row_mat1; i++){
-		result_mat[i] = new double[col_mat2];
+		result_mat[i] = new double[output_col];
 	}
 
 	double _temp = 0;
 
-	for (int i = 0; i < row_mat1; i++){
-		for (int j = 0; j < col_mat2; j++){
-			for (int k = 0; k < col_mat1; k++){
+	for (int i = 0; i < output_row; i++){
+		for (int j = 0; j < output_col; j++){
+			for (int k = 0; k < inner; k++){
 				_temp += (input_mat1[i][k] * input_mat2[k][j]);
 			}
 			result_mat[i][j] = _temp;
@@ -149,6 +175,28 @@ double **TranslatorServerImpl::matmul(double **input_mat1, double **input_mat2)
 		}
 	}
 	return result_mat;
+}
+
+void TranslatorServerImpl::matadd(double **input_mat1, double *vec, int mat_row, int mat_col)
+{
+	for(int i = 0; i<mat_row;i++)
+	{
+		for(int j = 0; j < mat_col; j++)
+		{
+			input_mat1[i][j] += vec[0];
+		}
+	}
+}
+
+void TranslatorServerImpl::matsub(double **input_mat1, double vec[1][5], int mat_row, int mat_col)
+{
+	for(int i = 0; i<mat_row;i++)
+	{
+		for(int j = 0; j < mat_col; j++)
+		{
+			input_mat1[i][j] -= vec[i][j];
+		}
+	}
 }
 
 void TranslatorServerImpl::getOutput()
@@ -165,10 +213,10 @@ void TranslatorServerImpl::getOutput()
 	}
 }
 
-void TranslatorServerImpl::setOutput(GetMatmulResponse *response)
+void TranslatorServerImpl::setOutput(GetMatmulResponse *response, int output_row, int output_col)
 {
-	for (int i = 0; i < row_mat1; i++){
-		for (int j = 0; j < col_mat2; j++)
+	for (int i = 0; i < output_row; i++){
+		for (int j = 0; j < output_col; j++)
 			response->add_result(matrix_result[i][j]); //add each result to response var
 	}
 }
@@ -196,20 +244,28 @@ void TranslatorServerImpl::deleteMemory()
 	row_mat2 = 0;
 	col_mat2 = 0;
 
-	std::string input_size1 = request->tensor1_shape();
-	std::string input_size2 = request->tensor2_shape();
-	std::vector<double> input_str1;
-	std::vector<double> input_str2;
-	getDim(input_size1, row_mat1, col_mat1);
-	getDim(input_size2, row_mat2, col_mat2);
+	std::string w_size_str = request->tensor1_shape();
+	std::string b_size_str = request->tensor2_shape();
+	std::string x_size_str = "[2,5]";
+	std::string y_size_str = "[1,5]";
+	std::vector<double> w_input;
+	std::vector<double> x_input;
+	std::vector<double> b_input;
+	std::vector<double> y_input;
 
+	getDim(w_size_str, w_row, w_col);
+	getDim(x_size_str, x_row, x_col);
+	getDim(y_size_str, y_row, y_col);
 
-	for (int i = 0; i < row_mat1 * col_mat1; i++)
-		input_str1.push_back(request->tensor1(i));
-	for (int i = 0; i < row_mat2 * col_mat2; i++)
-		input_str2.push_back(request->tensor2(i));
+	getDim(b_size_str, b_size);
+
+	for (int i = 0; i < w_row * w_col; i++)
+		w_input.push_back(request->tensor1(i));
+	for (int i = 0; i < b_size ; i++)
+		b_input.push_back(request->tensor2(i));
 	
 	if (col_mat1 != row_mat2){
+		/*
 		if (col_mat1 == col_mat2){
 			matrix1 = getMat(input_size1, input_str1, row_mat1, col_mat1);
 			matrix2 = transpose(input_str2, row_mat2, col_mat2);
@@ -217,25 +273,19 @@ void TranslatorServerImpl::deleteMemory()
 		else if (row_mat2 == row_mat1){
 			matrix1 = transpose(input_str1, row_mat1, col_mat1);
 			matrix2 = getMat(input_size2, input_str2, row_mat2, col_mat2);
-		}
+		}*/
 	}
 	else{
-		matrix1 = getMat(input_size1, input_str1, row_mat1, col_mat1);
-		matrix2 = getMat(input_size2, input_str2, row_mat2, col_mat2);
+		w = getMat(w_size_str, w_input, w_row, w_col);
+		b = getVec(b_input, b_size);
 	}
 
-	matrix_result = new double *[row_mat1];
-	
-  for (int j = 0; j < row_mat1; ++j){
-		matrix_result[j] = new double[col_mat2];
-		for (int i = 0; i < col_mat2; i++)
-			memset(&matrix_result[j][i], 0, sizeof(matrix_result[j][i]));
-	}
-
-	matrix_result = matmul(matrix1, matrix2);
+	matrix_result = matmul(w, x,1,5,2);
+	matadd(matrix_result, b, 1, 5);
+	matsub(matrix_result, y, 1, 5);
 
 	if (matrix_result != NULL){
-		setOutput(response);
+		setOutput(response,1,5);
 	}
 	else{
 		std::cout << "matrix_result is NULL" << std::endl;
